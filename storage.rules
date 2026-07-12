@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /taskAttachments/{taskId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/tasks/$(taskId))
+        && (firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.tutorUid == request.auth.uid
+            || firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.studentUid == request.auth.uid);
+    }
+    match /classAttachments/{classId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/classes/$(classId))
+        && (firestore.get(/databases/(default)/documents/classes/$(classId)).data.tutorUid == request.auth.uid
+            || firestore.get(/databases/(default)/documents/classes/$(classId)).data.studentUids.hasAny([request.auth.uid]));
+    }
+  }
+}
