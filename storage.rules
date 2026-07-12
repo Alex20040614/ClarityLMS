@@ -13,5 +13,11 @@ service firebase.storage {
         && (firestore.get(/databases/(default)/documents/classes/$(classId)).data.tutorUid == request.auth.uid
             || firestore.get(/databases/(default)/documents/classes/$(classId)).data.studentUids.hasAny([request.auth.uid]));
     }
+    match /qnaAttachments/{threadId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/qnaThreads/$(threadId))
+        && (firestore.get(/databases/(default)/documents/qnaThreads/$(threadId)).data.tutorUid == request.auth.uid
+            || firestore.get(/databases/(default)/documents/qnaThreads/$(threadId)).data.studentUid == request.auth.uid);
+    }
   }
 }

@@ -10,6 +10,7 @@ export default function ClassDetailModal({
   onAddMaterials,
   onRemoveMaterial,
   onEditNotes,
+  onEditMeetingLink,
   onDeleteClass,
 }) {
   const [files, setFiles] = useState([]);
@@ -20,6 +21,11 @@ export default function ClassDetailModal({
   const [notesDraft, setNotesDraft] = useState(classItem?.notes || "");
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
+
+  const [editingLink, setEditingLink] = useState(false);
+  const [linkDraft, setLinkDraft] = useState(classItem?.meetingLink || "");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -56,6 +62,25 @@ export default function ClassDetailModal({
       setNotesError(err.message || "Couldn't save those notes. Try again.");
     } finally {
       setNotesBusy(false);
+    }
+  }
+
+  function startEditLink() {
+    setLinkDraft(classItem.meetingLink || "");
+    setLinkError("");
+    setEditingLink(true);
+  }
+
+  async function handleSaveLink() {
+    setLinkError("");
+    setLinkBusy(true);
+    try {
+      await onEditMeetingLink(classItem.id, linkDraft);
+      setEditingLink(false);
+    } catch (err) {
+      setLinkError(err.message || "Couldn't save that link. Try again.");
+    } finally {
+      setLinkBusy(false);
     }
   }
 
@@ -96,16 +121,50 @@ export default function ClassDetailModal({
             <span>{isTutor ? `With ${classStudentNames(classItem)}` : `With ${classItem.tutorName}`}</span>
           </div>
 
-          {(classItem.zoomJoinUrl || classItem.zoomStartUrl) && (
-            <a
-              className="btn btn-primary"
-              href={isTutor ? classItem.zoomStartUrl || classItem.zoomJoinUrl : classItem.zoomJoinUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ margin: "12px 0" }}
-            >
-              <Icon name="videocam" /> {isTutor ? "Start Zoom meeting" : "Join Zoom meeting"}
-            </a>
+          {isTutor ? (
+            <div className="modal-section-row" style={{ marginTop: 4 }}>
+              <div className="modal-section-label">Meeting link</div>
+              {!editingLink && (
+                <button type="button" className="link-btn" onClick={startEditLink}>
+                  {classItem.meetingLink ? "Edit" : "Add link"}
+                </button>
+              )}
+            </div>
+          ) : (
+            classItem.meetingLink && <div className="modal-section-label" style={{ marginTop: 4 }}>Meeting link</div>
+          )}
+
+          {isTutor && editingLink ? (
+            <div style={{ marginBottom: 12 }}>
+              {linkError && <div className="auth-error">{linkError}</div>}
+              <input
+                type="url"
+                value={linkDraft}
+                onChange={(e) => setLinkDraft(e.target.value)}
+                placeholder="Paste your Zoom, Google Meet, or other meeting link"
+                style={{ width: "100%", marginBottom: 8 }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-primary" onClick={handleSaveLink} disabled={linkBusy}>
+                  Save
+                </button>
+                <button type="button" className="link-btn" onClick={() => setEditingLink(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            classItem.meetingLink && (
+              <a
+                className="btn btn-primary"
+                href={classItem.meetingLink}
+                target="_blank"
+                rel="noreferrer"
+                style={{ margin: "4px 0 12px 0" }}
+              >
+                <Icon name="videocam" /> Join meeting
+              </a>
+            )
           )}
 
           <div className="modal-section-row">

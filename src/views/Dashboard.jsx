@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon, TopicChip, PersonChip, StatusPill, TopicDot } from "../components/Common.jsx";
 import MathText from "../components/MathText.jsx";
-import { hueForTopic, hueForName, formatClassDay, formatClassStartTime, formatTimeRange, taskDueInfo, isClassUpcoming, classStartMs, classStudentNames } from "../data.js";
+import { hueForTopic, hueForName, formatClassDay, formatClassStartTime, formatTimeRange, taskDueInfo, isClassUpcoming, classStartMs, classStudentNames, studentHasSeenAnswer } from "../data.js";
 import { useNow } from "../hooks/useNow.js";
 
 function StatCard({ label, value, sub, icon, topic, onClick }) {
@@ -56,7 +56,7 @@ export default function Dashboard({ role, profile, setView, classes, roster, stu
   const tasksDueList = studentTasks.filter((t) => t.status === "pending").slice(0, 3);
   const tasksReviewList = tutorTasks.filter((t) => t.status === "submitted").slice(0, 3);
 
-  const recentStudentQuestions = studentThreads.slice(0, 3);
+  const recentStudentQuestions = studentThreads.filter((t) => !studentHasSeenAnswer(t)).slice(0, 3);
   const tutorQuestionsList = tutorThreads.filter((t) => t.status === "awaiting").slice(0, 3);
 
   return (

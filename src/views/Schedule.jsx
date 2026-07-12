@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Icon } from "../components/Common.jsx";
 import WeekCalendar from "../components/WeekCalendar.jsx";
-import { FilePicker } from "../components/FileAttachments.jsx";
+import { FileDropField } from "../components/FileAttachments.jsx";
 import StudentMultiSelect from "../components/StudentMultiSelect.jsx";
 import { hueForName, formatClassDay, formatDuration, formatTimeRange, isClassUpcoming, classStartMs, truncateEmail } from "../data.js";
 import { useNow } from "../hooks/useNow.js";
@@ -77,6 +77,7 @@ function TutorSchedule({ profile, classes, roster, onAddStudent, onRemoveStudent
   const [duration, setDuration] = useState("60");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [meetingLink, setMeetingLink] = useState("");
   const [files, setFiles] = useState([]);
   const [createError, setCreateError] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
@@ -115,6 +116,7 @@ function TutorSchedule({ profile, classes, roster, onAddStudent, onRemoveStudent
         time,
         duration,
         files,
+        meetingLink,
       });
       setSelectedStudentUids([]);
       setDate("");
@@ -122,6 +124,7 @@ function TutorSchedule({ profile, classes, roster, onAddStudent, onRemoveStudent
       setDuration("60");
       setTitle("");
       setNotes("");
+      setMeetingLink("");
       setFiles([]);
     } catch (err) {
       setCreateError(err.message || "Couldn't create that class.");
@@ -195,16 +198,21 @@ function TutorSchedule({ profile, classes, roster, onAddStudent, onRemoveStudent
             </div>
             <div className="form-field-label">{selectedStudentUids.length === 1 ? "Student" : "Students"}</div>
             <StudentMultiSelect roster={roster} selectedUids={selectedStudentUids} onChange={setSelectedStudentUids} />
-            <textarea
-              placeholder="Notes (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              style={{ width: "100%", marginBottom: 12 }}
+            <input
+              type="url"
+              placeholder="Meeting link (optional) — e.g. your Zoom or Google Meet link"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+              style={{ width: "100%", marginBottom: 10 }}
             />
-            <div style={{ marginBottom: 12 }}>
-              <FilePicker files={files} onChange={setFiles} label="Attach materials (optional)" />
-            </div>
+            <FileDropField files={files} onChange={setFiles}>
+              <textarea
+                placeholder="Notes (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+              />
+            </FileDropField>
             <button className="btn btn-primary" type="submit" disabled={createBusy}>
               Create class
             </button>

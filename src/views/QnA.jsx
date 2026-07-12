@@ -1,15 +1,31 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Icon, TopicChip, PersonChip, StatusPill } from "../components/Common.jsx";
 import MathText from "../components/MathText.jsx";
+import { FileDropField, AttachmentList } from "../components/FileAttachments.jsx";
 import { hueForName, initials, formatMessageTime } from "../data.js";
 
-export default function QnA({ role, profile, threads, activeId, setActiveId, onPost, onNewQuestion, roster = [], tutors = [] }) {
+export default function QnA({
+  role,
+  profile,
+  threads,
+  activeId,
+  setActiveId,
+  onPost,
+  onNewQuestion,
+  onEditMessage,
+  onDeleteMessage,
+  onDeleteThread,
+  onMarkSeen,
+  roster = [],
+  tutors = [],
+}) {
   const isTutor = role === "tutor";
   const counterparts = isTutor
     ? roster.map((r) => ({ id: r.studentUid, name: r.studentName }))
     : tutors.map((t) => ({ id: t.tutorUid, name: t.tutorName }));
 
   const [draft, setDraft] = useState("");
+  const [composeFiles, setComposeFiles] = useState([]);
   const [preview, setPreview] = useState(false);
   const [postBusy, setPostBusy] = useState(false);
   const [postError, setPostError] = useState("");
@@ -17,21 +33,39 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
   const [asking, setAsking] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCounterpartId, setNewCounterpartId] = useState("");
+  const [newFiles, setNewFiles] = useState([]);
   const [askBusy, setAskBusy] = useState(false);
   const [askError, setAskError] = useState("");
+
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const [threadDeleteBusy, setThreadDeleteBusy] = useState(false);
 
   const scrollRef = useRef(null);
 
   const active = threads.find((t) => t.id === activeId) || threads[0];
 
+  // A student opening a thread counts as having seen whatever answer is currently in it — this is
+  // what lets the dashboard's "recent questions" widget drop a question once it's actually been read.
+  useEffect(() => {
+    if (!isTutor && active && active.status === "answered") {
+      onMarkSeen(active.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTutor, active?.id, active?.status, active?.messages?.length]);
+
   async function handlePost() {
     const text = draft.trim();
-    if (!text || !active) return;
+    if ((!text && composeFiles.length === 0) || !active) return;
     setPostError("");
     setPostBusy(true);
     try {
-      await onPost(active.id, text);
+      await onPost(active.id, text, composeFiles);
       setDraft("");
+      setComposeFiles([]);
       setPreview(false);
     } catch (err) {
       setPostError(err.message || "Couldn't send that. Try again.");
@@ -47,6 +81,48 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
     }
   }
 
+  function startEditMessage(message) {
+    setEditingMessageId(message.id);
+    setEditDraft(message.text);
+    setEditError("");
+  }
+
+  function cancelEditMessage() {
+    setEditingMessageId(null);
+    setEditError("");
+  }
+
+  async function handleSaveEditMessage() {
+    const text = editDraft.trim();
+    if (!text || !active) return;
+    setEditError("");
+    setEditBusy(true);
+    try {
+      await onEditMessage(active.id, active.messages, editingMessageId, text);
+      setEditingMessageId(null);
+    } catch (err) {
+      setEditError(err.message || "Couldn't save that edit. Try again.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  async function handleDeleteMessage(message) {
+    if (!active || !window.confirm("Delete this message? This can't be undone.")) return;
+    await onDeleteMessage(active.id, active.messages, message.id);
+  }
+
+  async function handleDeleteThread() {
+    if (!active || !window.confirm("Delete this whole conversation? This can't be undone.")) return;
+    setThreadDeleteBusy(true);
+    try {
+      await onDeleteThread(active.id);
+      setActiveId(null);
+    } finally {
+      setThreadDeleteBusy(false);
+    }
+  }
+
   async function handleAsk(e) {
     e.preventDefault();
     const title = newTitle.trim();
@@ -57,12 +133,13 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
     setAskBusy(true);
     try {
       if (isTutor) {
-        await onNewQuestion({ studentUid: counterpart.id, studentName: counterpart.name, title });
+        await onNewQuestion({ studentUid: counterpart.id, studentName: counterpart.name, title, files: newFiles });
       } else {
-        await onNewQuestion({ tutorUid: counterpart.id, tutorName: counterpart.name, title });
+        await onNewQuestion({ tutorUid: counterpart.id, tutorName: counterpart.name, title, files: newFiles });
       }
       setNewTitle("");
       setNewCounterpartId("");
+      setNewFiles([]);
       setAsking(false);
     } catch (err) {
       setAskError(err.message || "Couldn't send that. Try again.");
@@ -102,13 +179,15 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    placeholder={isTutor ? "What do you want to ask or share?" : "What's your question?"}
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    autoFocus
-                  />
+                  <FileDropField files={newFiles} onChange={setNewFiles}>
+                    <input
+                      type="text"
+                      placeholder={isTutor ? "What do you want to ask or share?" : "What's your question?"}
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      autoFocus
+                    />
+                  </FileDropField>
                 </div>
                 <div className="qna-new-question-footer">
                   <span className="qna-compose-hint">Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.</span>
@@ -159,6 +238,15 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
                     <TopicChip topic={active.topic} />
                   )}
                   <StatusPill status={active.status} />
+                  <button
+                    type="button"
+                    className="link-btn"
+                    style={{ marginLeft: "auto" }}
+                    onClick={handleDeleteThread}
+                    disabled={threadDeleteBusy}
+                  >
+                    Delete conversation
+                  </button>
                 </div>
                 <div className="qna-detail-title serif">
                   <MathText text={active.title} />
@@ -189,11 +277,40 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
                         <div className="qna-message-head">
                           <span className="qna-message-name">{isOwn ? "You" : m.author}</span>
                           <span className="qna-role-tag">{isTutorMsg ? "Tutor" : "Student"}</span>
-                          <span className="qna-message-time">{formatMessageTime(m.time)}</span>
+                          <span className="qna-message-time">
+                            {formatMessageTime(m.time)}
+                            {m.editedAt ? " (edited)" : ""}
+                          </span>
+                          {isOwn && editingMessageId !== m.id && (
+                            <>
+                              <button type="button" className="link-btn qna-message-action" onClick={() => startEditMessage(m)}>
+                                Edit
+                              </button>
+                              <button type="button" className="link-btn qna-message-action" onClick={() => handleDeleteMessage(m)}>
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <div className={`qna-bubble ${isTutorMsg ? "tutor" : "student"}`}>
-                          <MathText text={m.text} />
-                        </div>
+                        {editingMessageId === m.id ? (
+                          <div className="qna-message-edit">
+                            {editError && <div className="auth-error">{editError}</div>}
+                            <textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} />
+                            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                              <button className="btn btn-primary" onClick={handleSaveEditMessage} disabled={editBusy || !editDraft.trim()}>
+                                Save
+                              </button>
+                              <button type="button" className="link-btn" onClick={cancelEditMessage}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`qna-bubble ${isTutorMsg ? "tutor" : "student"}`}>
+                            {m.text && <MathText text={m.text} />}
+                            <AttachmentList attachments={m.attachments} label="Attachments" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -224,15 +341,21 @@ export default function QnA({ role, profile, threads, activeId, setActiveId, onP
                       )}
                     </div>
                   ) : (
-                    <textarea
-                      placeholder={isTutor ? "Write your answer…" : "Ask a follow-up question…"}
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                    />
+                    <FileDropField files={composeFiles} onChange={setComposeFiles}>
+                      <textarea
+                        placeholder={isTutor ? "Write your answer…" : "Ask a follow-up question…"}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                      />
+                    </FileDropField>
                   )}
                 </div>
-                <button className="btn btn-primary" onClick={handlePost} disabled={!draft.trim() || postBusy}>
+                <button
+                  className="btn btn-primary"
+                  onClick={handlePost}
+                  disabled={(!draft.trim() && composeFiles.length === 0) || postBusy}
+                >
                   {isTutor ? "Send answer" : "Post question"}
                 </button>
               </div>

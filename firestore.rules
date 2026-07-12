@@ -41,7 +41,8 @@ service cloud.firestore {
         && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid)
         && request.resource.data.tutorUid == resource.data.tutorUid
         && request.resource.data.studentUid == resource.data.studentUid;
-      allow delete: if false;
+      allow delete: if request.auth != null
+        && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid);
     }
 
     match /tasks/{taskId} {
@@ -55,12 +56,6 @@ service cloud.firestore {
         && request.resource.data.tutorUid == resource.data.tutorUid
         && request.resource.data.studentUid == resource.data.studentUid;
       allow delete: if request.auth != null && resource.data.tutorUid == request.auth.uid;
-    }
-
-    // Zoom OAuth tokens. Only the Cloud Functions (Admin SDK, bypasses rules) ever read or write
-    // this — never the client, since these are long-lived credentials, not just app data.
-    match /zoomConnections/{tutorUid} {
-      allow read, write: if false;
     }
   }
 }

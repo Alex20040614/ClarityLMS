@@ -9,11 +9,9 @@ import AITutor from "./views/AITutor.jsx";
 import SignIn from "./views/auth/SignIn.jsx";
 import SignUp from "./views/auth/SignUp.jsx";
 import ChooseRole from "./views/auth/ChooseRole.jsx";
-import Settings from "./views/Settings.jsx";
 import PrivacyPolicy from "./views/PrivacyPolicy.jsx";
 import ClassDetailModal from "./components/ClassDetailModal.jsx";
 import { useAuth } from "./auth/useAuth.js";
-import { createZoomMeetingForClass } from "./services/zoom.js";
 import {
   addClassMaterials,
   addStudentToRoster,
@@ -26,10 +24,15 @@ import {
   subscribeClassesForTutor,
   subscribeRoster,
   subscribeTutorsForStudent,
+  updateClassMeetingLink,
   updateClassNotes,
 } from "./services/classroom.js";
 import {
   createThread as createQnaThread,
+  deleteMessage as deleteQnaMessage,
+  deleteThread as deleteQnaThread,
+  editMessage as editQnaMessage,
+  markThreadSeenByStudent,
   postMessage as postQnaMessage,
   subscribeThreadsForStudent,
   subscribeThreadsForTutor,
@@ -64,21 +67,9 @@ export default function App() {
   const [tutorTasks, setTutorTasks] = useState([]);
 
   const [selectedClassId, setSelectedClassId] = useState(null);
-  const [zoomBanner, setZoomBanner] = useState(null);
 
   const profile = auth.profile;
   const isTutor = profile?.role === "tutor";
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const zoomStatus = params.get("zoom");
-    if (zoomStatus) {
-      setZoomBanner(zoomStatus === "connected" ? "Zoom account connected." : "Couldn't connect Zoom — try again.");
-      params.delete("zoom");
-      const rest = params.toString();
-      window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : ""));
-    }
-  }, []);
 
   useEffect(() => {
     if (!profile) return;
@@ -138,7 +129,7 @@ export default function App() {
     });
   }
 
-  async function createStudentThread({ tutorUid, tutorName, title }) {
+  async function createStudentThread({ tutorUid, tutorName, title, files }) {
     const id = await createQnaThread({
       tutorUid,
       tutorName,
@@ -148,15 +139,16 @@ export default function App() {
       authorUid: profile.uid,
       authorName: profile.name,
       authorRole: "student",
+      files,
     });
     setActiveStudentThreadId(id);
   }
 
-  async function postStudentMessage(threadId, text) {
-    await postQnaMessage(threadId, { authorUid: profile.uid, author: profile.name, role: "student", text });
+  async function postStudentMessage(threadId, text, files) {
+    await postQnaMessage(threadId, { authorUid: profile.uid, author: profile.name, role: "student", text, files });
   }
 
-  async function createTutorThread({ studentUid, studentName, title }) {
+  async function createTutorThread({ studentUid, studentName, title, files }) {
     const id = await createQnaThread({
       tutorUid: profile.uid,
       tutorName: profile.name,
@@ -166,12 +158,13 @@ export default function App() {
       authorUid: profile.uid,
       authorName: profile.name,
       authorRole: "tutor",
+      files,
     });
     setActiveTutorThreadId(id);
   }
 
-  async function postTutorMessage(threadId, text) {
-    await postQnaMessage(threadId, { authorUid: profile.uid, author: profile.name, role: "tutor", text });
+  async function postTutorMessage(threadId, text, files) {
+    await postQnaMessage(threadId, { authorUid: profile.uid, author: profile.name, role: "tutor", text, files });
   }
 
   async function handleAddStudent(email) {
@@ -186,10 +179,7 @@ export default function App() {
   }
 
   async function handleCreateClass(data) {
-    const classId = await createClass(profile, data);
-    // Best-effort: the class already exists at this point regardless of whether a Zoom meeting
-    // can be created, so a Zoom failure here shouldn't surface as a "couldn't create class" error.
-    createZoomMeetingForClass(classId).catch(() => {});
+    await createClass(profile, data);
   }
 
   async function handleAddClassMaterials(classId, files) {
@@ -202,6 +192,10 @@ export default function App() {
 
   async function handleEditClassNotes(classId, notes) {
     await updateClassNotes(classId, notes);
+  }
+
+  async function handleEditClassMeetingLink(classId, meetingLink) {
+    await updateClassMeetingLink(classId, meetingLink);
   }
 
   async function handleDeleteClass(classId) {
@@ -309,6 +303,10 @@ export default function App() {
             setActiveId={setActiveStudentThreadId}
             onPost={postStudentMessage}
             onNewQuestion={createStudentThread}
+            onEditMessage={editQnaMessage}
+            onDeleteMessage={deleteQnaMessage}
+            onDeleteThread={deleteQnaThread}
+            onMarkSeen={markThreadSeenByStudent}
             tutors={myTutors}
           />
         ) : (
@@ -320,6 +318,9 @@ export default function App() {
             setActiveId={setActiveTutorThreadId}
             onPost={postTutorMessage}
             onNewQuestion={createTutorThread}
+            onEditMessage={editQnaMessage}
+            onDeleteMessage={deleteQnaMessage}
+            onDeleteThread={deleteQnaThread}
             roster={roster}
           />
         );
@@ -341,8 +342,6 @@ export default function App() {
         );
       case "ai":
         return <AITutor />;
-      case "settings":
-        return <Settings profile={profile} onProfileChange={auth.refreshProfile} />;
       default:
         return null;
     }
@@ -353,14 +352,6 @@ export default function App() {
       <Sidebar view={view} setView={setView} profile={profile} awaitingCount={awaitingCount} onSignOut={handleSignOut} />
       <div className="main">
         <Header view={view} />
-        {zoomBanner && (
-          <div className="zoom-banner">
-            {zoomBanner}
-            <button type="button" className="link-btn" onClick={() => setZoomBanner(null)}>
-              Dismiss
-            </button>
-          </div>
-        )}
         <div className="content">{renderView()}</div>
       </div>
       {selectedClass && (
@@ -371,6 +362,7 @@ export default function App() {
           onAddMaterials={handleAddClassMaterials}
           onRemoveMaterial={handleRemoveClassMaterial}
           onEditNotes={handleEditClassNotes}
+          onEditMeetingLink={handleEditClassMeetingLink}
           onDeleteClass={handleDeleteClass}
         />
       )}

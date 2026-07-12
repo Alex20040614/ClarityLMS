@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { key: "qna", label: "Q&A", icon: "forum" },
   { key: "tasks", label: "Tasks", icon: "checklist" },
   { key: "ai", label: "AI Tutor", icon: "auto_awesome" },
-  { key: "settings", label: "Settings", icon: "settings", tutorOnly: true },
 ];
 
 export default function Sidebar({ view, setView, profile, awaitingCount, onSignOut }) {

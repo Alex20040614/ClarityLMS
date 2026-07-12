@@ -183,6 +183,15 @@ export function formatMessageTime(ms) {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+// True once the tutor has answered (thread status "answered") AND the student has already opened
+// the thread since that answer arrived — i.e. there's nothing new left for the student to see here.
+export function studentHasSeenAnswer(thread) {
+  if (thread.status !== "answered") return false;
+  const lastMessage = thread.messages?.[thread.messages.length - 1];
+  if (!lastMessage) return false;
+  return Boolean(thread.studentSeenAt) && thread.studentSeenAt >= lastMessage.time;
+}
+
 // ---------- AI Tutor ----------
 
 export const AI_SYSTEM_PROMPT =

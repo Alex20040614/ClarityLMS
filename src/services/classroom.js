@@ -77,7 +77,7 @@ export async function removeRosterLink(linkId) {
   await deleteDoc(doc(db, "rosterLinks", linkId));
 }
 
-export async function createClass(tutorProfile, { students, title, notes, date, time, duration, files }) {
+export async function createClass(tutorProfile, { students, title, notes, date, time, duration, files, meetingLink }) {
   const classRef = doc(collection(db, "classes"));
   // startAt is computed here, in the tutor's own browser, so it's an unambiguous absolute instant
   // (JS interprets "date T time" in the local system timezone) — every viewer later renders it
@@ -97,6 +97,9 @@ export async function createClass(tutorProfile, { students, title, notes, date, 
     time,
     startAt: Number.isNaN(startAt) ? null : startAt,
     duration: Number(duration),
+    // The tutor pastes in a link to whatever meeting they've set up themselves (Zoom, Meet, etc.)
+    // rather than the app creating one automatically — see the class-detail modal for editing this later.
+    meetingLink: meetingLink || "",
     materials: [],
     createdAt: serverTimestamp(),
   });
@@ -105,6 +108,10 @@ export async function createClass(tutorProfile, { students, title, notes, date, 
     await updateDoc(classRef, { materials });
   }
   return classRef.id;
+}
+
+export async function updateClassMeetingLink(classId, meetingLink) {
+  await updateDoc(doc(db, "classes", classId), { meetingLink });
 }
 
 export async function addClassMaterials(classId, files) {

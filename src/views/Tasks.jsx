@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Icon, TopicChip, PersonChip } from "../components/Common.jsx";
-import { FilePicker, AttachmentList } from "../components/FileAttachments.jsx";
+import { FileDropField, AttachmentList } from "../components/FileAttachments.jsx";
 import StudentMultiSelect from "../components/StudentMultiSelect.jsx";
 import { hueForName, taskDueInfo, taskDueMs, formatTaskDueDay } from "../data.js";
 
@@ -72,14 +72,14 @@ function StudentTaskRow({ task, onSubmit }) {
         {open && !done && (
           <div className="task-submit-panel">
             {error && <div className="auth-error">{error}</div>}
-            <FilePicker files={files} onChange={setFiles} label="Attach files" />
-            <textarea
-              placeholder="Add a note (optional)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              style={{ width: "100%", margin: "10px 0" }}
-            />
+            <FileDropField files={files} onChange={setFiles}>
+              <textarea
+                placeholder="Add a note (optional)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+              />
+            </FileDropField>
             <button className="btn btn-primary" onClick={handleSubmit} disabled={busy}>
               Submit task
             </button>
@@ -493,14 +493,14 @@ function TutorTasks({ tasks, roster, onAssign, onRemoveAttachment, onEditTitle, 
           </div>
           <div className="form-field-label">{selectedStudentUids.length === 1 ? "Student" : "Students"}</div>
           <StudentMultiSelect roster={roster} selectedUids={selectedStudentUids} onChange={setSelectedStudentUids} />
-          <textarea
-            placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            style={{ width: "100%", marginBottom: 10 }}
-          />
-          <FilePicker files={files} onChange={setFiles} label="Attach files (optional)" />
+          <FileDropField files={files} onChange={setFiles}>
+            <textarea
+              placeholder="Notes (optional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </FileDropField>
           <button className="btn btn-primary" onClick={handleAssign} disabled={busy} style={{ marginTop: 10, alignSelf: "flex-start" }}>
             Assign
           </button>

@@ -721,8 +721,13 @@ button, textarea, input {
   gap: 8px;
   font-size: 13.5px;
   cursor: pointer;
-  padding: 2px 0;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--border-light-2);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
+.week-cal-class-item:hover { border-color: var(--accent); background: var(--accent-tint); }
 .week-cal-class-time { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--text-3); width: 44px; flex-shrink: 0; }
 .week-cal-class-title { font-weight: 600; color: var(--text); }
 .week-cal-class-sep { color: var(--text-5); }
@@ -783,11 +788,13 @@ button, textarea, input {
 }
 .qna-new-question-row {
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
+.qna-new-question-row .file-drop-field { min-width: 0; margin-bottom: 0; }
 .qna-new-question input,
 .qna-new-question select {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -796,7 +803,6 @@ button, textarea, input {
   background: var(--surface);
   color: var(--text);
 }
-.qna-new-question select { flex: 0 0 160px; }
 .qna-new-question input:focus, .qna-new-question select:focus { outline: none; border-color: var(--accent); }
 
 .qna-new-question-footer {
@@ -932,6 +938,16 @@ button, textarea, input {
   font-size: 11px;
   color: var(--text-5);
   margin-left: auto;
+}
+
+.qna-message-action {
+  font-size: 11px;
+  padding: 0;
+}
+
+.qna-message-edit textarea {
+  width: 100%;
+  font: inherit;
 }
 
 .qna-bubble {
@@ -1338,6 +1354,46 @@ button, textarea, input {
 }
 .btn-danger:hover { background: #F6DADA; }
 .btn-danger:disabled { opacity: 0.6; cursor: default; }
+
+.file-drop-zone {
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.file-drop-zone.drag-over { border-color: var(--accent); background: var(--accent-tint); }
+
+.file-drop-hint { font-size: 11px; color: var(--text-5); margin-top: 6px; }
+
+.file-drop-field { margin-bottom: 10px; }
+
+.file-drop-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 10px;
+  transition: box-shadow 0.15s ease;
+}
+.file-drop-row.drag-over { box-shadow: 0 0 0 2px var(--accent); }
+.file-drop-row > textarea,
+.file-drop-row > input[type="text"] { flex: 1; min-width: 0; margin: 0; }
+
+.file-attach-side-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.file-attach-side-btn:hover { border-color: var(--accent); color: var(--accent); }
+.file-attach-side-btn .icon { font-size: 18px; }
 
 .file-picker-btn {
   display: inline-flex;
