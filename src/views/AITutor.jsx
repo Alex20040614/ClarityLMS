@@ -1,22 +1,43 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Common.jsx";
 import MathText from "../components/MathText.jsx";
-import { AI_GREETING, SUGGESTED_PROMPTS, PROMPT_TIPS } from "../data.js";
-import { getCoachReply } from "../services/ai.js";
+import { AI_GREETING, SUGGESTED_PROMPTS, PROMPT_TIPS, formatMessageTime } from "../data.js";
+import { getChatTitle, getCoachReply } from "../services/ai.js";
+import { isFirebaseConfigured } from "../firebase.js";
+import { createAiChat, deleteAiChat, subscribeAiChats, updateAiChat, updateAiChatTitle } from "../services/aiChat.js";
 
 let idCounter = 1;
 function nextId() {
   return idCounter++;
 }
 
-export default function AITutor() {
-  const [messages, setMessages] = useState([
-    { id: nextId(), role: "assistant", text: AI_GREETING },
-  ]);
+function greetingMessage() {
+  return { id: nextId(), role: "assistant", text: AI_GREETING };
+}
+
+// Stored chats keep only { role, text }; re-key them for React when loading back in.
+function withIds(messages) {
+  return messages.map((m) => ({ id: nextId(), role: m.role, text: m.text }));
+}
+
+export default function AITutor({ profile }) {
+  const [messages, setMessages] = useState([greetingMessage()]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
+  // Tracked in a ref too so the async send handler always sees the current chat
+  // id (state closures would otherwise capture a stale value mid-request).
+  const activeChatIdRef = useRef(null);
+
+  const canPersist = isFirebaseConfigured && Boolean(profile?.uid);
+
+  useEffect(() => {
+    if (!canPersist) return;
+    return subscribeAiChats(profile.uid, setChats);
+  }, [canPersist, profile?.uid]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -24,22 +45,73 @@ export default function AITutor() {
     }
   }, [messages, sending]);
 
+  function setActiveChat(id) {
+    activeChatIdRef.current = id;
+    setActiveChatId(id);
+  }
+
+  async function persist(allMessages) {
+    if (!canPersist) return;
+    try {
+      if (activeChatIdRef.current) {
+        await updateAiChat(activeChatIdRef.current, allMessages);
+      } else {
+        // Save immediately with the first-message fallback title so the chat
+        // appears in history right away, then refine it into a concise
+        // AI-generated summary in the background.
+        const id = await createAiChat(profile.uid, allMessages);
+        setActiveChat(id);
+        getChatTitle(allMessages.map((m) => ({ role: m.role, text: m.text }))).then((title) => {
+          if (title) updateAiChatTitle(id, title).catch((err) => console.error("Failed to save chat title:", err));
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save AI chat:", err);
+    }
+  }
+
   async function sendMessage(text) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
     const userMsg = { id: nextId(), role: "user", text: trimmed };
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+    const withUser = [...messages, userMsg];
+    setMessages(withUser);
     setDraft("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setSending(true);
 
-    const reply = await getCoachReply(
-      nextMessages.map((m) => ({ role: m.role, text: m.text }))
-    );
+    const reply = await getCoachReply(withUser.map((m) => ({ role: m.role, text: m.text })));
 
-    setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text: reply }]);
+    const withReply = [...withUser, { id: nextId(), role: "assistant", text: reply }];
+    setMessages(withReply);
     setSending(false);
+    persist(withReply);
+  }
+
+  function startNewChat() {
+    if (sending) return;
+    setActiveChat(null);
+    setMessages([greetingMessage()]);
+    setDraft("");
+  }
+
+  function openChat(chat) {
+    if (sending) return;
+    setActiveChat(chat.id);
+    setMessages(withIds(chat.messages || []));
+    setDraft("");
+  }
+
+  async function handleDeleteChat(e, chatId) {
+    e.stopPropagation();
+    try {
+      await deleteAiChat(chatId);
+    } catch (err) {
+      console.error("Failed to delete AI chat:", err);
+      return;
+    }
+    if (activeChatIdRef.current === chatId) startNewChat();
   }
 
   function handleKeyDown(e) {
@@ -116,6 +188,45 @@ export default function AITutor() {
         </div>
 
         <div className="ai-sidebar">
+          {canPersist && (
+            <div className="card ai-sidebar-card">
+              <div className="ai-history-head">
+                <div className="ai-sidebar-title mono" style={{ marginBottom: 0 }}>Chat history</div>
+                <button className="ai-new-chat-btn" onClick={startNewChat} disabled={sending}>
+                  <Icon name="add" />
+                  New chat
+                </button>
+              </div>
+              {chats.length === 0 ? (
+                <p className="ai-history-empty">Your past chats with the AI tutor will show up here.</p>
+              ) : (
+                <div className="ai-history-list">
+                  {chats.map((chat) => (
+                    <div
+                      key={chat.id}
+                      className={`ai-history-item ${chat.id === activeChatId ? "active" : ""}`}
+                      onClick={() => openChat(chat)}
+                    >
+                      <div className="ai-history-text">
+                        <div className="ai-history-title">
+                          <MathText text={chat.title} />
+                        </div>
+                        <div className="ai-history-time">{formatMessageTime(chat.updatedAtMs)}</div>
+                      </div>
+                      <button
+                        className="ai-history-delete"
+                        onClick={(e) => handleDeleteChat(e, chat.id)}
+                        aria-label="Delete chat"
+                      >
+                        <Icon name="close" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="card ai-sidebar-card">
             <div className="ai-sidebar-title mono">Try asking</div>
             {SUGGESTED_PROMPTS.map((p) => (

@@ -5,12 +5,13 @@ import { initials } from "../data.js";
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: "space_dashboard" },
   { key: "schedule", label: "Schedule", icon: "calendar_month" },
+  { key: "booking", label: "Book a class", tutorLabel: "Availability", icon: "event_available" },
   { key: "qna", label: "Q&A", icon: "forum" },
   { key: "tasks", label: "Tasks", icon: "checklist" },
   { key: "ai", label: "AI Tutor", icon: "auto_awesome" },
 ];
 
-export default function Sidebar({ view, setView, profile, awaitingCount, onSignOut }) {
+export default function Sidebar({ view, setView, profile, awaitingCount, bookingCount, onSignOut }) {
   const isTutor = profile.role === "tutor";
 
   return (
@@ -28,26 +29,35 @@ export default function Sidebar({ view, setView, profile, awaitingCount, onSignO
             onClick={() => setView(item.key)}
           >
             <Icon name={item.icon} />
-            {item.label}
+            {isTutor && item.tutorLabel ? item.tutorLabel : item.label}
             {item.key === "qna" && isTutor && awaitingCount > 0 && (
               <span className="nav-badge">{awaitingCount}</span>
+            )}
+            {item.key === "booking" && isTutor && bookingCount > 0 && (
+              <span className="nav-badge">{bookingCount}</span>
             )}
           </button>
         ))}
       </nav>
 
       <div className="sidebar-bottom">
-        <div className="user-card">
+        <button
+          type="button"
+          className={`user-card ${view === "profile" ? "active" : ""}`}
+          onClick={() => setView("profile")}
+          title="View your profile"
+        >
           {profile.photoURL ? (
             <img className="avatar-dark" src={profile.photoURL} alt="" referrerPolicy="no-referrer" />
           ) : (
             <div className="avatar-dark">{initials(profile.name)}</div>
           )}
-          <div>
+          <div className="user-card-info">
             <div className="user-card-name">{profile.name}</div>
             <div className="user-card-sub">{isTutor ? "Maths Tutor" : "Student"}</div>
           </div>
-        </div>
+          <Icon name="chevron_right" />
+        </button>
         <button className="btn btn-ghost sign-out-btn" onClick={onSignOut}>
           <Icon name="logout" /> Sign out
         </button>

@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   query,
   serverTimestamp,
@@ -16,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "../firebase.js";
+import { recurrenceDates } from "../data.js";
 
 async function uploadClassFiles(classId, files) {
   return Promise.all(
@@ -46,8 +48,23 @@ export async function addStudentToRoster(tutorProfile, student) {
     studentUid: student.uid,
     studentName: student.name,
     studentEmail: student.email,
+    // Remaining prepaid class hours for this student with this tutor. Booked classes draw it down;
+    // cancellations feed it back; the tutor can top it up or correct it directly.
+    hoursRemaining: 0,
     addedAt: serverTimestamp(),
   });
+}
+
+// Sets a student's remaining-hours balance to an exact value (tutor top-up / correction).
+export async function setRosterHours(linkId, hours) {
+  await updateDoc(doc(db, "rosterLinks", linkId), { hoursRemaining: Number(hours) || 0 });
+}
+
+// Applies a signed delta to a student's balance (negative when a class is booked, positive on
+// refund). Uses a Firestore increment so concurrent class operations don't clobber each other.
+export async function adjustRosterHours(linkId, deltaHours) {
+  if (!deltaHours) return;
+  await updateDoc(doc(db, "rosterLinks", linkId), { hoursRemaining: increment(deltaHours) });
 }
 
 export function subscribeRoster(tutorUid, callback) {
@@ -77,7 +94,9 @@ export async function removeRosterLink(linkId) {
   await deleteDoc(doc(db, "rosterLinks", linkId));
 }
 
-export async function createClass(tutorProfile, { students, title, notes, date, time, duration, files, meetingLink }) {
+// seriesId groups the sessions created together as one recurring series (null for a one-off class),
+// so a series could later be shown or managed as a unit.
+export async function createClass(tutorProfile, { students, title, notes, date, time, duration, files, meetingLink, seriesId = null }) {
   const classRef = doc(collection(db, "classes"));
   // startAt is computed here, in the tutor's own browser, so it's an unambiguous absolute instant
   // (JS interprets "date T time" in the local system timezone) — every viewer later renders it
@@ -97,10 +116,14 @@ export async function createClass(tutorProfile, { students, title, notes, date, 
     time,
     startAt: Number.isNaN(startAt) ? null : startAt,
     duration: Number(duration),
+    // Hours this class bills each attendee — the exact amount to refund on cancellation, kept on the
+    // doc so refunds stay correct even if the duration is later changed.
+    billedHours: (Number(duration) || 0) / 60,
     // The tutor pastes in a link to whatever meeting they've set up themselves (Zoom, Meet, etc.)
     // rather than the app creating one automatically — see the class-detail modal for editing this later.
     meetingLink: meetingLink || "",
     materials: [],
+    seriesId,
     createdAt: serverTimestamp(),
   });
   if (files && files.length > 0) {
@@ -110,8 +133,46 @@ export async function createClass(tutorProfile, { students, title, notes, date, 
   return classRef.id;
 }
 
+// Batch-creates a recurring series: the same class details repeated across every date the rule
+// produces. Each session is an independent class doc (its own id, its own copy of any attachments
+// under classAttachments/{classId} — required by Storage rules, which key access to a real class
+// doc), tagged with a shared seriesId. Created sequentially so a mid-way failure surfaces clearly
+// with the earlier sessions already saved, rather than silently leaving an unknown partial set.
+export async function createRecurringClasses(tutorProfile, data, { frequency, count }) {
+  const dates = recurrenceDates(data.date, frequency, count);
+  const seriesId = doc(collection(db, "classes")).id;
+  const ids = [];
+  for (const date of dates) {
+    ids.push(await createClass(tutorProfile, { ...data, date, seriesId }));
+  }
+  return ids;
+}
+
 export async function updateClassMeetingLink(classId, meetingLink) {
   await updateDoc(doc(db, "classes", classId), { meetingLink });
+}
+
+// Adds attendees to an existing class. Receives the full new attendee list (current + additions) and
+// keeps the flat studentUids array in sync, so array-contains queries and the read rule (which gate
+// a student's access to the class on membership in studentUids) stay correct.
+export async function addClassStudents(classId, students) {
+  await updateDoc(doc(db, "classes", classId), {
+    students,
+    studentUids: students.map((s) => s.uid),
+  });
+}
+
+// Reschedules a class. Recomputes the absolute startAt from the new date/time (in the editing tutor's
+// local timezone, matching how classes are created) so every viewer still renders the correct instant.
+export async function updateClassTime(classId, { date, time, duration }) {
+  const startAt = new Date(`${date}T${time}`).getTime();
+  await updateDoc(doc(db, "classes", classId), {
+    date,
+    time,
+    startAt: Number.isNaN(startAt) ? null : startAt,
+    duration: Number(duration),
+    billedHours: (Number(duration) || 0) / 60,
+  });
 }
 
 export async function addClassMaterials(classId, files) {
@@ -130,6 +191,13 @@ export async function updateClassNotes(classId, notes) {
 
 export async function deleteClass(classId) {
   await deleteDoc(doc(db, "classes", classId));
+}
+
+// Deletes every session in a recurring series. Takes the ids the client already holds from its live
+// classes subscription (rather than re-querying by seriesId) — each delete is authorised one-by-one
+// by the existing per-class rule (tutorUid == auth.uid), so no seriesId query/index is needed.
+export async function deleteClassSeries(classIds) {
+  await Promise.all(classIds.map((id) => deleteDoc(doc(db, "classes", id))));
 }
 
 export function subscribeClassesForTutor(tutorUid, callback) {

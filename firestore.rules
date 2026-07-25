@@ -7,8 +7,13 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.role in ["student", "tutor"];
-      // Role and identity are locked once created.
-      allow update, delete: if false;
+      // The owner may edit their display name and profile picture; role, uid, and email stay locked.
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email;
+      allow delete: if false;
     }
 
     match /rosterLinks/{linkId} {
@@ -18,7 +23,12 @@ service cloud.firestore {
         && request.resource.data.tutorUid == request.auth.uid;
       allow delete: if request.auth != null
         && resource.data.tutorUid == request.auth.uid;
-      allow update: if false;
+      // The tutor manages the link (e.g. the student's remaining-hours balance); the pairing itself
+      // can't be reassigned to different people.
+      allow update: if request.auth != null
+        && resource.data.tutorUid == request.auth.uid
+        && request.resource.data.tutorUid == resource.data.tutorUid
+        && request.resource.data.studentUid == resource.data.studentUid;
     }
 
     match /classes/{classId} {
@@ -43,6 +53,39 @@ service cloud.firestore {
         && request.resource.data.studentUid == resource.data.studentUid;
       allow delete: if request.auth != null
         && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid);
+    }
+
+    match /availability/{tutorUid} {
+      // Any signed-in user can read a tutor's availability (a student needs it to see open slots);
+      // only the tutor themselves can edit their own template and busy times. The doc id is the uid.
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == tutorUid;
+    }
+
+    match /classRequests/{requestId} {
+      allow read: if request.auth != null
+        && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid);
+      // A student raises a request for themselves; it always starts pending.
+      allow create: if request.auth != null
+        && request.resource.data.studentUid == request.auth.uid
+        && request.resource.data.status == "pending";
+      // The tutor accepts/declines; either party can otherwise touch it, but neither can reassign the
+      // request to different people.
+      allow update: if request.auth != null
+        && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid)
+        && request.resource.data.tutorUid == resource.data.tutorUid
+        && request.resource.data.studentUid == resource.data.studentUid;
+      // A student withdraws their own request; a tutor may clear one out too.
+      allow delete: if request.auth != null
+        && (resource.data.tutorUid == request.auth.uid || resource.data.studentUid == request.auth.uid);
+    }
+
+    match /aiChats/{chatId} {
+      // A private AI-tutor conversation, owned by and visible to a single user.
+      allow read, update, delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
     }
 
     match /tasks/{taskId} {

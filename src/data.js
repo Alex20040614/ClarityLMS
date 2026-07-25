@@ -52,6 +52,106 @@ export function formatClassDate(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
+// ---------- Recurring classes ----------
+
+export const RECURRENCE_OPTIONS = [
+  { value: "none", label: "Does not repeat" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+];
+
+export const RECURRENCE_MAX_COUNT = 52;
+
+function toISODate(dt) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// Expands a start date ("YYYY-MM-DD") plus a recurrence rule into the list of dates the series
+// should occupy. Built from the date's local parts (not `new Date("YYYY-MM-DD")`, which parses as
+// UTC and can slip a day) so the weekday never drifts. "none" yields a single date.
+export function recurrenceDates(startDate, frequency, count) {
+  if (!startDate) return [];
+  const total = frequency === "none" ? 1 : Math.max(1, Math.min(count || 1, RECURRENCE_MAX_COUNT));
+  const [y, m, d] = startDate.split("-").map(Number);
+  if (!y || !m || !d) return [];
+  const dates = [];
+  for (let i = 0; i < total; i++) {
+    const dt = new Date(y, m - 1, d);
+    if (frequency === "daily") dt.setDate(dt.getDate() + i);
+    else if (frequency === "weekly") dt.setDate(dt.getDate() + i * 7);
+    else if (frequency === "biweekly") dt.setDate(dt.getDate() + i * 14);
+    dates.push(toISODate(dt));
+  }
+  return dates;
+}
+
+// ---------- Booking / availability ----------
+
+export const SLOT_MINUTES = 30;
+export const DAY_SLOT_COUNT = (24 * 60) / SLOT_MINUTES; // 48 half-hour slots per day
+export const REQUEST_DURATION_OPTIONS = [30, 60, 90, 120];
+
+// Weekdays are indexed 0=Mon … 6=Sun (Monday-first, matching the week calendar), which differs from
+// JS's Date.getDay() where 0=Sun. mondayWeekday() converts between them.
+export const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export function mondayWeekday(date) {
+  const d = date.getDay();
+  return d === 0 ? 6 : d - 1;
+}
+
+export function slotIndexToTime(i) {
+  const mins = i * SLOT_MINUTES;
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+}
+
+// ["00:00", "00:30", … "23:30"]
+export const DAY_SLOT_TIMES = Array.from({ length: DAY_SLOT_COUNT }, (_, i) => slotIndexToTime(i));
+
+// Key for one cell of a tutor's recurring weekly template, e.g. "0-09:30" (Monday 09:30).
+export function weeklySlotKey(weekday, time) {
+  return `${weekday}-${time}`;
+}
+
+// Absolute ms-epoch instant of a slot: the given calendar day (a Date at local midnight) at the
+// slot's HH:MM, in the current viewer's local timezone — the same convention classes use for startAt.
+export function slotStartMs(dayDate, time) {
+  const [h, m] = time.split(":").map(Number);
+  const d = new Date(dayDate);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
+export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+// True if [startMs, endMs) collides with any of the tutor's busy blocks ({ startAt, duration }).
+export function overlapsBusy(busy, startMs, endMs) {
+  return (busy || []).some((b) =>
+    rangesOverlap(startMs, endMs, b.startAt, b.startAt + (b.duration || 60) * 60000)
+  );
+}
+
+// True if every 30-min slot a class of `duration` would occupy is in the tutor's weekly template.
+// A booking that would cross midnight is rejected (returns false) to keep each class within one day.
+export function rangeTemplateAvailable(availableSet, dayDate, startTime, duration) {
+  const startIdx = DAY_SLOT_TIMES.indexOf(startTime);
+  if (startIdx < 0) return false;
+  const needed = duration / SLOT_MINUTES;
+  const weekday = mondayWeekday(dayDate);
+  for (let k = 0; k < needed; k++) {
+    const idx = startIdx + k;
+    if (idx >= DAY_SLOT_COUNT) return false; // would spill past midnight
+    if (!availableSet.has(weeklySlotKey(weekday, DAY_SLOT_TIMES[idx]))) return false;
+  }
+  return true;
+}
+
 // Resolves a class's start instant as an absolute ms-epoch timestamp. Classes created after the
 // timezone fix store `startAt` directly (computed in the scheduling tutor's own local timezone at
 // creation time, so it's already an unambiguous absolute instant). Older classes only have naive
@@ -63,6 +163,22 @@ export function classStartMs(classItem) {
   if (!classItem.date || !classItem.time) return null;
   const d = new Date(`${classItem.date}T${classItem.time}`);
   return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+// Returns the first class in `existingClasses` whose time overlaps the proposed
+// [startMs, startMs + durationMin) window, or null if the slot is free — used to stop a tutor
+// double-booking themselves. Pass ignoreId to skip a class being rescheduled in place.
+export function findClassConflict(existingClasses, startMs, durationMin, ignoreId = null) {
+  if (startMs == null) return null;
+  const endMs = startMs + (Number(durationMin) || 60) * 60000;
+  for (const c of existingClasses) {
+    if (ignoreId && c.id === ignoreId) continue;
+    const cStart = classStartMs(c);
+    if (cStart == null) continue;
+    const cEnd = cStart + (Number(c.duration) || 60) * 60000;
+    if (rangesOverlap(startMs, endMs, cStart, cEnd)) return c;
+  }
+  return null;
 }
 
 // Returns a class's attendees as [{uid, name}, ...]. Classes now store a `students` array (a class
@@ -127,6 +243,14 @@ export function formatDuration(minutes) {
   const rest = mins % 60;
   const hrLabel = `${hrs} hr${hrs === 1 ? "" : "s"}`;
   return rest === 0 ? hrLabel : `${hrLabel} ${rest} min`;
+}
+
+// Formats an hours balance for display, e.g. "1.5 hrs", "0 hrs", "-2 hrs". Trims trailing zeros so
+// whole numbers read cleanly while fractional lesson lengths (0.25, 1.5) still show.
+export function formatHours(hours) {
+  const n = Math.round((Number(hours) || 0) * 100) / 100;
+  const label = Number.isInteger(n) ? String(n) : String(n);
+  return `${label} ${Math.abs(n) === 1 ? "hr" : "hrs"}`;
 }
 
 // Formats a byte count as e.g. "480 B", "12.3 KB", "1.4 MB".
@@ -202,6 +326,9 @@ export const AI_FALLBACK_REPLY =
 
 export const AI_GREETING =
   "Hi! I'm your AI study coach. I won't just hand you answers — I'll help you understand the maths and learn to study with AI. What are we working on today?";
+
+export const AI_TITLE_PROMPT =
+  "Summarise this tutoring conversation into a concise title of at most 6 words for a chat-history list. Capture the specific maths topic. Write any maths notation as LaTeX wrapped in single $ (e.g. $x^2$), never as plain ASCII or unicode. Reply with only the title — no surrounding quotes, no trailing punctuation, no explanation.";
 
 export const SUGGESTED_PROMPTS = [
   "Make me a study plan for quadratics this week",

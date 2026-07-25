@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, isFirebaseConfigured } from "../firebase.js";
+import { updateProfileFields, uploadProfilePicture } from "../services/profile.js";
 
 async function fetchProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
@@ -60,14 +61,34 @@ export function useAuth() {
     return { user: cred.user, hasProfile: Boolean(existing) };
   }
 
-  async function completeRoleChoice(role) {
+  // Google users pick their role AND enter the display name they want shown on the platform, rather
+  // than inheriting whatever name their Google account carries.
+  async function completeRoleChoice(role, name) {
     if (!user) return;
     await createProfile(user.uid, {
-      name: user.displayName || user.email,
+      name: (name && name.trim()) || user.displayName || user.email,
       email: user.email,
       role,
       photoURL: user.photoURL,
     });
+  }
+
+  async function updateProfilePhoto(file) {
+    if (!user) return;
+    const url = await uploadProfilePicture(user.uid, file);
+    setProfile((prev) => (prev ? { ...prev, photoURL: url } : prev));
+  }
+
+  // Saves editable profile fields ({ name?, photoURL? }) and mirrors them into local state. photoURL
+  // may be null to clear a picture back to initials.
+  async function saveProfile(fields) {
+    if (!user) return;
+    const clean = {};
+    if (typeof fields.name === "string") clean.name = fields.name;
+    if (fields.photoURL !== undefined) clean.photoURL = fields.photoURL;
+    if (Object.keys(clean).length === 0) return;
+    await updateProfileFields(user.uid, clean);
+    setProfile((prev) => (prev ? { ...prev, ...clean } : prev));
   }
 
   async function signOutUser() {
@@ -93,6 +114,8 @@ export function useAuth() {
     signInWithEmail,
     signInWithGoogle,
     completeRoleChoice,
+    updateProfilePhoto,
+    saveProfile,
     signOutUser,
     resetPassword,
     refreshProfile,
