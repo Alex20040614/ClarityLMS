@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Icon } from "../components/Common.jsx";
+import PhotoCropModal from "../components/PhotoCropModal.jsx";
 import { initials, hueForName, truncateEmail } from "../data.js";
 
 // Preset "pick an avatar" options — each a colored circle with an emoji, encoded inline as an SVG
@@ -30,6 +31,7 @@ export default function Profile({ profile, onSaveName, onUploadPhoto, onSetPhoto
   const [nameMsg, setNameMsg] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
+  const [cropFile, setCropFile] = useState(null);
 
   const nameChanged = name.trim() && name.trim() !== profile.name;
   const h = hueForName(profile.name || "?");
@@ -75,7 +77,13 @@ export default function Profile({ profile, onSaveName, onUploadPhoto, onSetPhoto
       setPhotoError("Image must be under 5 MB.");
       return;
     }
-    withPhotoBusy(() => onUploadPhoto(file));
+    setPhotoError("");
+    setCropFile(file);
+  }
+
+  async function handleCropSave(croppedFile) {
+    await withPhotoBusy(() => onUploadPhoto(croppedFile));
+    setCropFile(null);
   }
 
   return (
@@ -170,6 +178,10 @@ export default function Profile({ profile, onSaveName, onUploadPhoto, onSetPhoto
           </div>
         </div>
       </div>
+
+      {cropFile && (
+        <PhotoCropModal file={cropFile} onCancel={() => setCropFile(null)} onSave={handleCropSave} />
+      )}
     </div>
   );
 }

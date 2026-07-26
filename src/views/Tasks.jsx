@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Icon, TopicChip, PersonChip } from "../components/Common.jsx";
+import { Icon, PersonChip } from "../components/Common.jsx";
 import { FileDropField, AttachmentList } from "../components/FileAttachments.jsx";
 import StudentMultiSelect from "../components/StudentMultiSelect.jsx";
 import { hueForName, taskDueInfo, taskDueMs, formatTaskDueDay } from "../data.js";
@@ -51,7 +51,6 @@ function StudentTaskRow({ task, onSubmit }) {
           {done && <Icon name="check" />}
         </button>
         <span className={`task-title ${done ? "done" : ""}`}>{task.title}</span>
-        <TopicChip topic={task.topic} />
         <span className={`task-due ${due.tone}`}>{due.label}</span>
         {!done && (
           <button type="button" className="link-btn" onClick={() => setOpen((o) => !o)}>
@@ -265,7 +264,6 @@ function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, 
       </div>
       <div className="tutor-task-meta">
         <PersonChip name={t.studentName} hue={h} />
-        <TopicChip topic={t.topic} />
         <span className={`tutor-task-due ${due.tone}`}>{due.label}</span>
       </div>
 

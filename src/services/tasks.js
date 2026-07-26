@@ -23,7 +23,6 @@ async function createTaskForStudent({ tutorUid, tutorName, studentUid, studentNa
     studentName,
     title,
     notes: notes || "",
-    topic: "General",
     dueDate,
     dueTime,
     dueAt,

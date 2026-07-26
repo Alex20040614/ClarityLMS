@@ -2462,3 +2462,36 @@ button, textarea, input {
 .profile-account-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
 .profile-account-label { color: var(--text-3); }
 .profile-account-value { color: var(--text); font-weight: 500; }
+
+.crop-stage {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--canvas);
+  cursor: grab;
+  touch-action: none;
+}
+.crop-stage:active { cursor: grabbing; }
+.crop-stage-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+}
+.crop-stage-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px rgba(20, 20, 24, 0.55);
+  pointer-events: none;
+}
+
+.crop-zoom-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.crop-zoom-row input[type="range"] { flex: 1; }
+.crop-zoom-row .icon { font-size: 18px; color: var(--text-3); }
