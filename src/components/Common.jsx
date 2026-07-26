@@ -9,22 +9,6 @@ export function Icon({ name, style }) {
   );
 }
 
-export function TopicChip({ topic }) {
-  const h = hueForTopic(topic);
-  return (
-    <span
-      className="chip"
-      style={{
-        background: `oklch(0.955 0.032 ${h})`,
-        color: `oklch(0.46 0.12 ${h})`,
-      }}
-    >
-      <span className="chip-dot" style={{ background: `oklch(0.6 0.14 ${h})` }} />
-      {topic}
-    </span>
-  );
-}
-
 export function PersonChip({ name, hue }) {
   return (
     <span

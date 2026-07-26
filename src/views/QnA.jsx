@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Icon, TopicChip, PersonChip, StatusPill } from "../components/Common.jsx";
+import { Icon, PersonChip, StatusPill } from "../components/Common.jsx";
 import MathText from "../components/MathText.jsx";
 import { FileDropField, AttachmentList } from "../components/FileAttachments.jsx";
 import { hueForName, initials, formatMessageTime } from "../data.js";
@@ -44,9 +44,19 @@ export default function QnA({
 
   const [threadDeleteBusy, setThreadDeleteBusy] = useState(false);
 
+  // On mobile the list and detail panes can't sit side by side, so only one shows at a time —
+  // this tracks which, starting on the detail pane if we were handed an id to jump straight to
+  // (e.g. opened from a notification). Irrelevant on desktop, where both panes always show.
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(() => Boolean(activeId));
+
   const scrollRef = useRef(null);
 
   const active = threads.find((t) => t.id === activeId) || threads[0];
+
+  function openThread(threadId) {
+    setActiveId(threadId);
+    setMobileDetailOpen(true);
+  }
 
   // A student opening a thread counts as having seen whatever answer is currently in it — this is
   // what lets the dashboard's "recent questions" widget drop a question once it's actually been read.
@@ -118,6 +128,7 @@ export default function QnA({
     try {
       await onDeleteThread(active.id);
       setActiveId(null);
+      setMobileDetailOpen(false);
     } finally {
       setThreadDeleteBusy(false);
     }
@@ -150,7 +161,7 @@ export default function QnA({
 
   return (
     <div className="content-inner" style={{ height: "100%" }}>
-      <div className="qna-layout">
+      <div className={`qna-layout ${mobileDetailOpen ? "qna-mobile-detail" : ""}`}>
         <div className="card qna-list-card">
           <div className="qna-list-heading">
             <span>{isTutor ? "Student questions" : "Your questions"}</span>
@@ -208,14 +219,10 @@ export default function QnA({
                 <button
                   key={t.id}
                   className={`qna-thread-row ${active && t.id === active.id ? "active" : ""}`}
-                  onClick={() => setActiveId(t.id)}
+                  onClick={() => openThread(t.id)}
                 >
                   <div className="qna-thread-row-top">
-                    {isTutor ? (
-                      <PersonChip name={t.studentName} hue={hueForName(t.studentName)} />
-                    ) : (
-                      <TopicChip topic={t.topic} />
-                    )}
+                    {isTutor && <PersonChip name={t.studentName} hue={hueForName(t.studentName)} />}
                     <StatusPill status={t.status} />
                   </div>
                   <div className="qna-thread-title">
@@ -232,11 +239,10 @@ export default function QnA({
             <>
               <div className="qna-detail-header">
                 <div className="qna-detail-top">
-                  {isTutor ? (
-                    <PersonChip name={active.studentName} hue={hueForName(active.studentName)} />
-                  ) : (
-                    <TopicChip topic={active.topic} />
-                  )}
+                  <button type="button" className="qna-back-btn" onClick={() => setMobileDetailOpen(false)} aria-label="Back to questions">
+                    <Icon name="arrow_back" />
+                  </button>
+                  {isTutor && <PersonChip name={active.studentName} hue={hueForName(active.studentName)} />}
                   <StatusPill status={active.status} />
                   <button
                     type="button"
@@ -317,47 +323,49 @@ export default function QnA({
                 })}
               </div>
 
-              <div className="qna-compose">
-                <div className="qna-compose-col">
-                  <div className="qna-compose-toolbar">
-                    <span className="qna-compose-hint">
-                      Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.
-                    </span>
-                    <button
-                      type="button"
-                      className="qna-preview-toggle"
-                      onClick={() => setPreview((p) => !p)}
-                    >
-                      {preview ? "Write" : "Preview"}
-                    </button>
-                  </div>
-                  {postError && <div className="auth-error" style={{ margin: "0 0 8px 0" }}>{postError}</div>}
-                  {preview ? (
-                    <div className="qna-compose-preview">
-                      {draft.trim() ? (
-                        <MathText text={draft} />
-                      ) : (
-                        <span className="qna-compose-preview-empty">Nothing to preview yet.</span>
-                      )}
-                    </div>
-                  ) : (
-                    <FileDropField files={composeFiles} onChange={setComposeFiles}>
-                      <textarea
-                        placeholder={isTutor ? "Write your answer…" : "Ask a follow-up question…"}
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                      />
-                    </FileDropField>
-                  )}
+              <div className="qna-composer">
+                <div className="qna-compose-toolbar">
+                  <span className="qna-compose-hint">
+                    Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.
+                  </span>
+                  <button
+                    type="button"
+                    className="qna-preview-toggle"
+                    onClick={() => setPreview((p) => !p)}
+                  >
+                    {preview ? "Write" : "Preview"}
+                  </button>
                 </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={handlePost}
-                  disabled={(!draft.trim() && composeFiles.length === 0) || postBusy}
-                >
-                  {isTutor ? "Send answer" : "Post question"}
-                </button>
+                {postError && <div className="auth-error" style={{ margin: "0 0 8px 0" }}>{postError}</div>}
+                <div className="qna-compose">
+                  <div className="qna-compose-col">
+                    {preview ? (
+                      <div className="qna-compose-preview">
+                        {draft.trim() ? (
+                          <MathText text={draft} />
+                        ) : (
+                          <span className="qna-compose-preview-empty">Nothing to preview yet.</span>
+                        )}
+                      </div>
+                    ) : (
+                      <FileDropField files={composeFiles} onChange={setComposeFiles}>
+                        <textarea
+                          placeholder={isTutor ? "Write your answer…" : "Ask a follow-up question…"}
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                        />
+                      </FileDropField>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handlePost}
+                    disabled={(!draft.trim() && composeFiles.length === 0) || postBusy}
+                  >
+                    {isTutor ? "Send answer" : "Post question"}
+                  </button>
+                </div>
               </div>
             </>
           ) : (

@@ -50,8 +50,12 @@ export default function WeeklyAvailabilityGrid({ available, onChange, disabled }
       dragRef.current = null;
       dirtyRef.current = false;
     }
-    window.addEventListener("mouseup", endDrag);
-    return () => window.removeEventListener("mouseup", endDrag);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    return () => {
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
   }, [onChange]);
 
   function paint(key, mode) {
@@ -64,11 +68,20 @@ export default function WeeklyAvailabilityGrid({ available, onChange, disabled }
     bump();
   }
 
-  function handleDown(key) {
+  // Mouse supports the click-and-sweep gesture (paint committed on the later window "pointerup").
+  // Touch/pen can't reuse that gesture — a drag across cells is indistinguishable from the user
+  // trying to scroll the grid — so a touch tap instead toggles just that one cell and commits
+  // immediately, leaving native scrolling untouched.
+  function handleDown(e, key) {
     if (disabled) return;
     const mode = setRef.current.has(key) ? "remove" : "add";
-    dragRef.current = { mode };
-    paint(key, mode);
+    if (e.pointerType === "mouse") {
+      dragRef.current = { mode };
+      paint(key, mode);
+    } else {
+      paint(key, mode);
+      onChange(Array.from(setRef.current));
+    }
   }
 
   function handleEnter(key) {
@@ -98,8 +111,8 @@ export default function WeeklyAvailabilityGrid({ available, onChange, disabled }
                   <div
                     key={key}
                     className={`avail-cell ${on ? "on" : ""} ${isHour ? "hour" : ""}`}
-                    onMouseDown={() => handleDown(key)}
-                    onMouseEnter={() => handleEnter(key)}
+                    onPointerDown={(e) => handleDown(e, key)}
+                    onPointerEnter={() => handleEnter(key)}
                     role="button"
                     aria-pressed={on}
                     aria-label={`${WEEKDAY_LABELS[weekday]} ${time} ${on ? "available" : "unavailable"}`}

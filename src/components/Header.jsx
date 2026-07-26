@@ -109,15 +109,20 @@ function NotificationBell({ notifications, userId }) {
   );
 }
 
-export default function Header({ view, notifications = [], userId }) {
+export default function Header({ view, notifications = [], userId, onMenuClick }) {
   const { title, sub } = TITLES[view];
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <header className="header">
-      <div>
-        <div className="header-title">{title}</div>
-        <div className="header-sub">{sub}</div>
+      <div className="header-left">
+        <button type="button" className="menu-btn" onClick={onMenuClick} aria-label="Open menu">
+          <Icon name="menu" />
+        </button>
+        <div>
+          <div className="header-title">{title}</div>
+          <div className="header-sub">{sub}</div>
+        </div>
       </div>
       <div className="header-right">
         <span className="header-date mono">{today}</span>

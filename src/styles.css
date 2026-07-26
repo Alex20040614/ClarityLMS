@@ -104,6 +104,14 @@ button, textarea, input {
   padding: 0 8px 22px 8px;
 }
 
+.logo-row-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
 .logo-mark {
   width: 33px;
   height: 33px;
@@ -271,18 +279,34 @@ button, textarea, input {
 }
 
 .header {
-  height: 66px;
-  flex: 0 0 66px;
+  min-height: 66px;
+  flex: 0 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: 10px 32px;
 }
 
 .header-title { font-family: "Source Serif 4", serif; font-size: 19px; font-weight: 600; }
 .header-sub { font-size: 12.5px; color: var(--text-4); margin-top: 1px; }
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+.menu-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
 
 .header-right { display: flex; align-items: center; gap: 16px; }
 
@@ -1020,6 +1044,16 @@ button, textarea, input {
   margin-bottom: 10px;
 }
 
+.qna-back-btn {
+  display: none;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px;
+  margin-right: 2px;
+}
+
 .qna-detail-title {
   font-family: "Source Serif 4", serif;
   font-size: 18px;
@@ -1099,9 +1133,12 @@ button, textarea, input {
 .qna-bubble.tutor { background: var(--accent-tint); color: var(--text); }
 .qna-bubble.student { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
 
-.qna-compose {
+.qna-composer {
   border-top: 1px solid var(--border-light-2);
   padding: 16px 22px;
+}
+
+.qna-compose {
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -1122,9 +1159,10 @@ button, textarea, input {
 
 .qna-compose-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
+  margin-bottom: 8px;
 }
 
 .qna-compose-hint {
@@ -2495,3 +2533,70 @@ button, textarea, input {
 .crop-zoom-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
 .crop-zoom-row input[type="range"] { flex: 1; }
 .crop-zoom-row .icon { font-size: 18px; color: var(--text-3); }
+
+/* ---------- Mobile (<=768px): sidebar becomes an off-canvas drawer, grids stack ---------- */
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .menu-btn { display: flex; }
+  .header-date, .header-divider { display: none; }
+  .header { padding: 10px 16px; }
+  .content { padding: 18px; }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 210;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 40px rgba(20, 20, 30, 0.2);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 24, 0.4);
+    z-index: 200;
+  }
+
+  .notif-panel {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-columns { grid-template-columns: 1fr; }
+
+  .promo-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+  .promo-btn { align-self: flex-start; }
+
+  /* AI Tutor: the fixed 320px history/prompts column next to the chat pane is what was
+     squeezing everything on narrow screens — stack it below instead, and give the chat
+     pane a fixed height (rather than 100%) so its own message list still scrolls
+     independently instead of stretching to fit the whole page. */
+  .ai-layout { grid-template-columns: 1fr; height: auto; }
+  .ai-chat-card { height: 65vh; }
+
+  /* Q&A: a master-detail layout (340px list + detail pane) can't show both at once on a
+     phone width — show only one pane at a time, switching via the row tap / back button. */
+  .qna-layout { grid-template-columns: 1fr; height: 75vh; }
+  .qna-detail-card { display: none; }
+  .qna-layout.qna-mobile-detail .qna-list-card { display: none; }
+  .qna-layout.qna-mobile-detail .qna-detail-card { display: flex; }
+  .qna-back-btn { display: inline-flex; align-items: center; }
+
+  .qna-detail-header, .qna-messages, .qna-composer { padding-left: 16px; padding-right: 16px; }
+}

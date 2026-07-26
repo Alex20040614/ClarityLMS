@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon, TopicChip, PersonChip, StatusPill, TopicDot } from "../components/Common.jsx";
+import { Icon, PersonChip, StatusPill, TopicDot } from "../components/Common.jsx";
 import MathText from "../components/MathText.jsx";
 import { hueForTopic, hueForName, formatClassDay, formatClassStartTime, formatTimeRange, taskDueInfo, isClassUpcoming, classStartMs, classStudentNames, studentHasSeenAnswer } from "../data.js";
 import { useNow } from "../hooks/useNow.js";
@@ -149,7 +149,7 @@ export default function Dashboard({ role, profile, setView, classes, roster, stu
               ) : (
                 (isTutor ? tutorQuestionsList : recentStudentQuestions).map((q) => (
                   <div className="list-row list-row-clickable" key={q.id} onClick={() => onSelectQuestion(q.id)}>
-                    {isTutor ? <PersonChip name={q.studentName} hue={hueForName(q.studentName)} /> : <TopicChip topic={q.topic} />}
+                    {isTutor && <PersonChip name={q.studentName} hue={hueForName(q.studentName)} />}
                     <div style={{ flex: 1 }}>
                       <div className="list-row-title">
                         <MathText text={q.title} />

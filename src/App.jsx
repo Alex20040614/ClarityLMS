@@ -145,6 +145,7 @@ export default function App() {
 
   const [selectedClassId, setSelectedClassId] = useState(null);
   const [showDebrief, setShowDebrief] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const profile = auth.profile;
   const isTutor = profile?.role === "tutor";
@@ -696,9 +697,11 @@ export default function App() {
         awaitingCount={awaitingCount}
         bookingCount={pendingRequestCount}
         onSignOut={handleSignOut}
+        navOpen={navOpen}
+        onCloseNav={() => setNavOpen(false)}
       />
       <div className="main">
-        <Header view={view} notifications={notifications} userId={profile.uid} />
+        <Header view={view} notifications={notifications} userId={profile.uid} onMenuClick={() => setNavOpen((o) => !o)} />
         <div className="content">{renderView()}</div>
       </div>
       {selectedClass && (

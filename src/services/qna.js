@@ -36,7 +36,6 @@ export async function createThread({ tutorUid, tutorName, studentUid, studentNam
     tutorName,
     studentUid,
     studentName,
-    topic: "General",
     title,
     status: authorRole === "tutor" ? "answered" : "awaiting",
     messages: [firstMessage],
