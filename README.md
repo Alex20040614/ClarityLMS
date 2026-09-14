@@ -22,8 +22,9 @@ and submitting tasks, asking and answering questions with LaTeX support, and an 
   pending request.
 - **Tasks** — tutors assign tasks (to one or many students at once) with a due date, notes, and file
   attachments, and can attach or remove files on a task afterwards; students submit with their own
-  notes and files. Tutors can also leave written feedback on a task — plain text, LaTeX (`$…$`), and
-  file attachments, with a preview before saving — which the student sees typeset on their own copy. Completed/reviewed tasks move into a
+  notes and files. Task notes and the tutor's written feedback both take plain text and LaTeX
+  (`$…$`), with a preview before saving; feedback can carry file attachments too, and all of it is
+  editable afterwards. The student sees notes and feedback typeset on their own copy of the task. Completed/reviewed tasks move into a
   per-student task history view.
 - **Q&A** — threaded questions and answers between a tutor and a student, with LaTeX rendering
   (wrap maths in `$...$` or `$$...$$`), file attachments of any type, drag-and-drop onto the message

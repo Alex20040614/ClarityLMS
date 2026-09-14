@@ -64,7 +64,7 @@ function StudentTaskRow({ task, onSubmit }) {
         {task.notes && (
           <div style={{ marginBottom: 10 }}>
             <div className="task-attachments-label">Notes from your tutor</div>
-            <div className="modal-notes">{task.notes}</div>
+            <div className="modal-notes"><MathText text={task.notes} /></div>
           </div>
         )}
         <AttachmentList attachments={task.attachments} label="From your tutor" />
@@ -192,6 +192,7 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onSaveFe
   const [notesDraft, setNotesDraft] = useState(t.notes || "");
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
+  const [notesPreview, setNotesPreview] = useState(false);
 
   const [files, setFiles] = useState([]);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -239,6 +240,7 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onSaveFe
   function startEditNotes() {
     setNotesDraft(t.notes || "");
     setNotesError("");
+    setNotesPreview(false);
     setEditingNotes(true);
   }
 
@@ -339,13 +341,31 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onSaveFe
       {editingNotes ? (
         <div style={{ marginBottom: 10 }}>
           {notesError && <div className="auth-error">{notesError}</div>}
-          <textarea
-            value={notesDraft}
-            onChange={(e) => setNotesDraft(e.target.value)}
-            rows={2}
-            style={{ width: "100%", marginBottom: 8 }}
-          />
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="qna-compose-toolbar">
+            <span className="qna-compose-hint">
+              Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.
+            </span>
+            <button type="button" className="qna-preview-toggle" onClick={() => setNotesPreview((p) => !p)}>
+              {notesPreview ? "Write" : "Preview"}
+            </button>
+          </div>
+          {notesPreview ? (
+            <div className="qna-compose-preview task-feedback-preview">
+              {notesDraft.trim() ? (
+                <MathText text={notesDraft} />
+              ) : (
+                <span className="qna-compose-preview-empty">Nothing to preview yet.</span>
+              )}
+            </div>
+          ) : (
+            <textarea
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              rows={2}
+              style={{ width: "100%", marginBottom: 8 }}
+            />
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button className="btn btn-primary" onClick={handleSaveNotes} disabled={notesBusy}>
               Save
             </button>
@@ -356,7 +376,7 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onSaveFe
         </div>
       ) : (
         <div className="modal-notes" style={{ marginBottom: 10 }}>
-          {t.notes ? t.notes : "No notes added."}
+          {t.notes ? <MathText text={t.notes} /> : "No notes added."}
         </div>
       )}
 
@@ -637,6 +657,9 @@ function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachm
           </div>
           <div className="form-field-label">{selectedStudentUids.length === 1 ? "Student" : "Students"}</div>
           <StudentMultiSelect roster={roster} selectedUids={selectedStudentUids} onChange={setSelectedStudentUids} />
+          <div className="qna-compose-hint" style={{ marginBottom: 6 }}>
+            Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.
+          </div>
           <FileDropField files={files} onChange={setFiles}>
             <textarea
               placeholder="Notes (optional)"
