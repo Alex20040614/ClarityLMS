@@ -48,6 +48,7 @@ import {
   subscribeThreadsForTutor,
 } from "./services/qna.js";
 import {
+  addTaskAttachments,
   createTask,
   deleteTask,
   markTaskReviewed,
@@ -457,6 +458,10 @@ export default function App() {
     setSelectedClassId(null);
   }
 
+  async function handleAddTaskAttachments(taskId, files) {
+    await addTaskAttachments(taskId, files);
+  }
+
   async function handleRemoveTaskAttachment(taskId, attachment) {
     await removeTaskAttachment(taskId, attachment);
   }
@@ -660,6 +665,7 @@ export default function App() {
             tutorTasks={tutorTasks}
             roster={roster}
             onAssignTutorTask={assignTutorTask}
+            onAddTaskAttachments={handleAddTaskAttachments}
             onRemoveTaskAttachment={handleRemoveTaskAttachment}
             onEditTaskTitle={handleEditTaskTitle}
             onEditTaskNotes={handleEditTaskNotes}

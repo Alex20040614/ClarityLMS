@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Icon, PersonChip } from "../components/Common.jsx";
-import { FileDropField, AttachmentList } from "../components/FileAttachments.jsx";
+import { FileDropField, FilePicker, AttachmentList } from "../components/FileAttachments.jsx";
 import StudentMultiSelect from "../components/StudentMultiSelect.jsx";
 import { hueForName, taskDueInfo, taskDueMs, formatTaskDueDay } from "../data.js";
 
@@ -169,7 +169,7 @@ function StudentTasks({ tasks, onSubmit }) {
   );
 }
 
-function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
   const [editBusy, setEditBusy] = useState(false);
@@ -181,6 +181,10 @@ function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, 
   const [notesDraft, setNotesDraft] = useState(t.notes || "");
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
+
+  const [files, setFiles] = useState([]);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const hasSubmission = t.status === "submitted" || t.status === "reviewed";
   const isReviewed = t.status === "reviewed";
@@ -227,6 +231,20 @@ function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, 
       setNotesError(err.message || "Couldn't save those notes. Try again.");
     } finally {
       setNotesBusy(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (files.length === 0) return;
+    setUploadError("");
+    setUploadBusy(true);
+    try {
+      await onAddAttachments(t.id, files);
+      setFiles([]);
+    } catch (err) {
+      setUploadError(err.message || "Couldn't attach that file. Try again.");
+    } finally {
+      setUploadBusy(false);
     }
   }
 
@@ -300,6 +318,15 @@ function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, 
       )}
 
       <AttachmentList attachments={t.attachments} label="Attached by you" onRemove={(file) => onRemoveAttachment(t.id, file)} />
+      <div className="task-add-attachments">
+        {uploadError && <div className="auth-error">{uploadError}</div>}
+        <FilePicker files={files} onChange={setFiles} label="Attach files" />
+        {files.length > 0 && (
+          <button className="btn btn-primary" onClick={handleUpload} disabled={uploadBusy} style={{ marginTop: 10 }}>
+            {uploadBusy ? "Uploading…" : "Upload"}
+          </button>
+        )}
+      </div>
       {hasSubmission && <AttachmentList attachments={t.submission?.attachments} label={`Submitted by ${t.studentName}`} />}
 
       <div className="tutor-task-actions">
@@ -332,7 +359,7 @@ function TutorTaskCard({ task: t, onRemoveAttachment, onEditTitle, onEditNotes, 
   );
 }
 
-function TutorTaskHistory({ historyTasks, roster, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTaskHistory({ historyTasks, roster, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [selectedStudentUid, setSelectedStudentUid] = useState("");
 
   const studentTasks = historyTasks.filter((t) => t.studentUid === selectedStudentUid);
@@ -367,6 +394,7 @@ function TutorTaskHistory({ historyTasks, roster, onRemoveAttachment, onEditTitl
               <TutorTaskCard
                 key={t.id}
                 task={t}
+                onAddAttachments={onAddAttachments}
                 onRemoveAttachment={onRemoveAttachment}
                 onEditTitle={onEditTitle}
                 onEditNotes={onEditNotes}
@@ -381,7 +409,7 @@ function TutorTaskHistory({ historyTasks, roster, onRemoveAttachment, onEditTitl
   );
 }
 
-function TutorTasks({ tasks, roster, onAssign, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedStudentUids, setSelectedStudentUids] = useState([]);
@@ -449,6 +477,7 @@ function TutorTasks({ tasks, roster, onAssign, onRemoveAttachment, onEditTitle, 
         <TutorTaskHistory
           historyTasks={historyTasks}
           roster={roster}
+          onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
           onEditTitle={onEditTitle}
           onEditNotes={onEditNotes}
@@ -521,6 +550,7 @@ function TutorTasks({ tasks, roster, onAssign, onRemoveAttachment, onEditTitle, 
         <TutorTaskCard
           key={t.id}
           task={t}
+          onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
           onEditTitle={onEditTitle}
           onEditNotes={onEditNotes}
@@ -539,6 +569,7 @@ export default function Tasks({
   tutorTasks,
   roster,
   onAssignTutorTask,
+  onAddTaskAttachments,
   onRemoveTaskAttachment,
   onEditTaskTitle,
   onEditTaskNotes,
@@ -554,6 +585,7 @@ export default function Tasks({
           tasks={tutorTasks}
           roster={roster}
           onAssign={onAssignTutorTask}
+          onAddAttachments={onAddTaskAttachments}
           onRemoveAttachment={onRemoveTaskAttachment}
           onEditTitle={onEditTaskTitle}
           onEditNotes={onEditTaskNotes}

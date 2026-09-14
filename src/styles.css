@@ -1613,6 +1613,9 @@ button, textarea, input {
   margin-bottom: 8px;
 }
 
+/* The tutor's "attach more files" box on a task card, matching the class modal's spacing. */
+.task-add-attachments { margin-top: 10px; }
+
 .modal-add-materials {
   margin-top: 16px;
   border-top: 1px solid var(--border-light-2);

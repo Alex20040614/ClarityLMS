@@ -1,4 +1,4 @@
-import { arrayRemove, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "../firebase.js";
 
@@ -67,6 +67,15 @@ export async function createTask({ tutorUid, tutorName, students, title, notes, 
     )
   );
   return taskIds;
+}
+
+// Attaches more files to an existing task. They go in the same taskAttachments/{taskId}/task
+// folder the task's original files use, so the Storage rule (which keys access off the task doc's
+// tutor/student) already covers them. Like the originals, these belong to this student's copy of
+// the task only — a task assigned to several students is several independent docs.
+export async function addTaskAttachments(taskId, files) {
+  const attachments = await uploadFiles(taskId, "task", files);
+  await updateDoc(doc(db, "tasks", taskId), { attachments: arrayUnion(...attachments) });
 }
 
 export async function removeTaskAttachment(taskId, attachment) {

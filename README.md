@@ -21,7 +21,8 @@ and submitting tasks, asking and answering questions with LaTeX support, and an 
   automatic schedule-conflict and insufficient-hours checks) or declines, and students can cancel a
   pending request.
 - **Tasks** — tutors assign tasks (to one or many students at once) with a due date, notes, and file
-  attachments; students submit with their own notes and files. Completed/reviewed tasks move into a
+  attachments, and can attach or remove files on a task afterwards; students submit with their own
+  notes and files. Completed/reviewed tasks move into a
   per-student task history view.
 - **Q&A** — threaded questions and answers between a tutor and a student, with LaTeX rendering
   (wrap maths in `$...$` or `$$...$$`), file attachments of any type, drag-and-drop onto the message
