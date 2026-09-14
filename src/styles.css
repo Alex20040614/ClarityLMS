@@ -1616,6 +1616,24 @@ button, textarea, input {
 /* The tutor's "attach more files" box on a task card, matching the class modal's spacing. */
 .task-add-attachments { margin-top: 10px; }
 
+/* Feedback on a task — composed like a Q&A message (text + maths + attachments), so it borrows
+   the composer's toolbar/preview styling and just needs its own spacing. */
+.task-feedback { margin-top: 12px; }
+.task-feedback-body { margin-bottom: 8px; }
+.task-feedback-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 13.5px;
+  resize: vertical;
+  min-width: 0;
+}
+.task-feedback-preview {
+  min-height: 60px;
+  margin-bottom: 4px;
+}
+
 .modal-add-materials {
   margin-top: 16px;
   border-top: 1px solid var(--border-light-2);

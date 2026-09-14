@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Icon, PersonChip } from "../components/Common.jsx";
 import { FileDropField, FilePicker, AttachmentList } from "../components/FileAttachments.jsx";
+import MathText from "../components/MathText.jsx";
 import StudentMultiSelect from "../components/StudentMultiSelect.jsx";
 import { hueForName, taskDueInfo, taskDueMs, formatTaskDueDay } from "../data.js";
 
@@ -28,6 +29,7 @@ function StudentTaskRow({ task, onSubmit }) {
 
   const done = task.status !== "pending";
   const due = taskDueInfo(task);
+  const hasFeedback = Boolean(task.feedback?.text?.trim() || task.feedback?.attachments?.length);
 
   async function handleSubmit() {
     setError("");
@@ -67,6 +69,15 @@ function StudentTaskRow({ task, onSubmit }) {
         )}
         <AttachmentList attachments={task.attachments} label="From your tutor" />
         {done && <AttachmentList attachments={task.submission?.attachments} label="Your submission" />}
+        {hasFeedback && (
+          <div className="task-feedback">
+            <div className="task-attachments-label">Feedback from your tutor</div>
+            <div className="modal-notes task-feedback-body">
+              {task.feedback.text?.trim() ? <MathText text={task.feedback.text} /> : "See the attached files."}
+            </div>
+            <AttachmentList attachments={task.feedback?.attachments} label="Feedback attachments" />
+          </div>
+        )}
         {task.status === "reviewed" && <div className="task-reviewed-note">Reviewed by your tutor</div>}
         {open && !done && (
           <div className="task-submit-panel">
@@ -169,7 +180,7 @@ function StudentTasks({ tasks, onSubmit }) {
   );
 }
 
-function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onSaveFeedback, onRemoveFeedbackAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
   const [editBusy, setEditBusy] = useState(false);
@@ -186,7 +197,17 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTi
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  // Feedback is composed like a Q&A message: free text that may carry $…$ maths, plus attachments.
+  const [editingFeedback, setEditingFeedback] = useState(false);
+  const [feedbackDraft, setFeedbackDraft] = useState(t.feedback?.text || "");
+  const [feedbackFiles, setFeedbackFiles] = useState([]);
+  const [feedbackPreview, setFeedbackPreview] = useState(false);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+
   const hasSubmission = t.status === "submitted" || t.status === "reviewed";
+  // Feedback counts as given once there's text or at least one attached file.
+  const hasFeedback = Boolean(t.feedback?.text?.trim() || t.feedback?.attachments?.length);
   const isReviewed = t.status === "reviewed";
   const statusLabel = isReviewed ? "Reviewed" : hasSubmission ? "Submitted" : "Pending";
   const due = taskDueInfo(t);
@@ -245,6 +266,28 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTi
       setUploadError(err.message || "Couldn't attach that file. Try again.");
     } finally {
       setUploadBusy(false);
+    }
+  }
+
+  function startEditFeedback() {
+    setFeedbackDraft(t.feedback?.text || "");
+    setFeedbackFiles([]);
+    setFeedbackPreview(false);
+    setFeedbackError("");
+    setEditingFeedback(true);
+  }
+
+  async function handleSaveFeedback() {
+    setFeedbackError("");
+    setFeedbackBusy(true);
+    try {
+      await onSaveFeedback(t.id, { text: feedbackDraft, files: feedbackFiles });
+      setFeedbackFiles([]);
+      setEditingFeedback(false);
+    } catch (err) {
+      setFeedbackError(err.message || "Couldn't save that feedback. Try again.");
+    } finally {
+      setFeedbackBusy(false);
     }
   }
 
@@ -329,6 +372,76 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTi
       </div>
       {hasSubmission && <AttachmentList attachments={t.submission?.attachments} label={`Submitted by ${t.studentName}`} />}
 
+      <div className="task-feedback">
+        <div className="modal-section-row">
+          <div className="task-attachments-label">Feedback</div>
+          {!editingFeedback && (
+            <button type="button" className="link-btn" onClick={startEditFeedback} aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}>
+              {hasFeedback ? "Edit" : "Add feedback"}
+            </button>
+          )}
+        </div>
+        {editingFeedback ? (
+          <div>
+            {feedbackError && <div className="auth-error">{feedbackError}</div>}
+            <div className="qna-compose-toolbar">
+              <span className="qna-compose-hint">
+                Tip: wrap maths in $…$ (or $$…$$ for a centred equation) to render it.
+              </span>
+              <button type="button" className="qna-preview-toggle" onClick={() => setFeedbackPreview((p) => !p)}>
+                {feedbackPreview ? "Write" : "Preview"}
+              </button>
+            </div>
+            {feedbackPreview ? (
+              <div className="qna-compose-preview task-feedback-preview">
+                {feedbackDraft.trim() ? (
+                  <MathText text={feedbackDraft} />
+                ) : (
+                  <span className="qna-compose-preview-empty">Nothing to preview yet.</span>
+                )}
+              </div>
+            ) : (
+              <FileDropField files={feedbackFiles} onChange={setFeedbackFiles}>
+                <textarea
+                  className="task-feedback-input"
+                  placeholder={`Write feedback for ${t.studentName}…`}
+                  value={feedbackDraft}
+                  onChange={(e) => setFeedbackDraft(e.target.value)}
+                  rows={3}
+                />
+              </FileDropField>
+            )}
+            {/* The files already saved on this feedback, editable in place alongside the text.
+                Removing one applies straight away (as removing an attachment does everywhere else
+                in the app), unlike the text, which is staged until Save. */}
+            <AttachmentList
+              attachments={t.feedback?.attachments}
+              label="Already attached (removing is immediate)"
+              onRemove={(file) => onRemoveFeedbackAttachment(t.id, file)}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="btn btn-primary" onClick={handleSaveFeedback} disabled={feedbackBusy}>
+                {feedbackBusy ? "Saving…" : "Save feedback"}
+              </button>
+              <button type="button" className="link-btn" onClick={() => setEditingFeedback(false)} disabled={feedbackBusy}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="modal-notes task-feedback-body">
+              {hasFeedback ? <MathText text={t.feedback.text} /> : "No feedback given yet."}
+            </div>
+            <AttachmentList
+              attachments={t.feedback?.attachments}
+              label="Attached to your feedback"
+              onRemove={(file) => onRemoveFeedbackAttachment(t.id, file)}
+            />
+          </>
+        )}
+      </div>
+
       <div className="tutor-task-actions">
         {editing ? (
           <>
@@ -359,7 +472,7 @@ function TutorTaskCard({ task: t, onAddAttachments, onRemoveAttachment, onEditTi
   );
 }
 
-function TutorTaskHistory({ historyTasks, roster, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTaskHistory({ historyTasks, roster, onAddAttachments, onRemoveAttachment, onSaveFeedback, onRemoveFeedbackAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [selectedStudentUid, setSelectedStudentUid] = useState("");
 
   const studentTasks = historyTasks.filter((t) => t.studentUid === selectedStudentUid);
@@ -396,6 +509,8 @@ function TutorTaskHistory({ historyTasks, roster, onAddAttachments, onRemoveAtta
                 task={t}
                 onAddAttachments={onAddAttachments}
                 onRemoveAttachment={onRemoveAttachment}
+                onSaveFeedback={onSaveFeedback}
+                onRemoveFeedbackAttachment={onRemoveFeedbackAttachment}
                 onEditTitle={onEditTitle}
                 onEditNotes={onEditNotes}
                 onDelete={onDelete}
@@ -409,7 +524,7 @@ function TutorTaskHistory({ historyTasks, roster, onAddAttachments, onRemoveAtta
   );
 }
 
-function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
+function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachment, onSaveFeedback, onRemoveFeedbackAttachment, onEditTitle, onEditNotes, onDelete, onMarkReviewed }) {
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedStudentUids, setSelectedStudentUids] = useState([]);
@@ -479,6 +594,8 @@ function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachm
           roster={roster}
           onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
+          onSaveFeedback={onSaveFeedback}
+          onRemoveFeedbackAttachment={onRemoveFeedbackAttachment}
           onEditTitle={onEditTitle}
           onEditNotes={onEditNotes}
           onDelete={onDelete}
@@ -552,6 +669,8 @@ function TutorTasks({ tasks, roster, onAssign, onAddAttachments, onRemoveAttachm
           task={t}
           onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
+          onSaveFeedback={onSaveFeedback}
+          onRemoveFeedbackAttachment={onRemoveFeedbackAttachment}
           onEditTitle={onEditTitle}
           onEditNotes={onEditNotes}
           onDelete={onDelete}
@@ -571,6 +690,8 @@ export default function Tasks({
   onAssignTutorTask,
   onAddTaskAttachments,
   onRemoveTaskAttachment,
+  onSaveTaskFeedback,
+  onRemoveTaskFeedbackAttachment,
   onEditTaskTitle,
   onEditTaskNotes,
   onDeleteTask,
@@ -587,6 +708,8 @@ export default function Tasks({
           onAssign={onAssignTutorTask}
           onAddAttachments={onAddTaskAttachments}
           onRemoveAttachment={onRemoveTaskAttachment}
+          onSaveFeedback={onSaveTaskFeedback}
+          onRemoveFeedbackAttachment={onRemoveTaskFeedbackAttachment}
           onEditTitle={onEditTaskTitle}
           onEditNotes={onEditTaskNotes}
           onDelete={onDeleteTask}

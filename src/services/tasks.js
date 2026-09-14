@@ -83,6 +83,26 @@ export async function removeTaskAttachment(taskId, attachment) {
   await updateDoc(doc(db, "tasks", taskId), { attachments: arrayRemove(attachment) });
 }
 
+// Saves the tutor's feedback on a task: free text (which may contain $…$ LaTeX, rendered on
+// display) plus any files attached alongside it. Files go under taskAttachments/{taskId}/feedback,
+// kept apart from the task's own materials and the student's submission so each list stays its own
+// thing; the Storage rule covers the whole taskAttachments/{taskId} tree, so both parties can read
+// them. Saving again edits the text in place and appends any newly attached files.
+export async function saveTaskFeedback(taskId, { text, files }) {
+  const uploaded = files && files.length > 0 ? await uploadFiles(taskId, "feedback", files) : [];
+  const update = {
+    "feedback.text": text || "",
+    "feedback.updatedAt": serverTimestamp(),
+  };
+  if (uploaded.length > 0) update["feedback.attachments"] = arrayUnion(...uploaded);
+  await updateDoc(doc(db, "tasks", taskId), update);
+}
+
+export async function removeTaskFeedbackAttachment(taskId, attachment) {
+  await deleteObject(ref(storage, attachment.path)).catch(() => {});
+  await updateDoc(doc(db, "tasks", taskId), { "feedback.attachments": arrayRemove(attachment) });
+}
+
 export async function updateTaskTitle(taskId, title) {
   await updateDoc(doc(db, "tasks", taskId), { title });
 }

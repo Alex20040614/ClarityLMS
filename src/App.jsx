@@ -53,6 +53,8 @@ import {
   deleteTask,
   markTaskReviewed,
   removeTaskAttachment,
+  removeTaskFeedbackAttachment,
+  saveTaskFeedback,
   submitTask,
   subscribeTasksForStudent,
   subscribeTasksForTutor,
@@ -466,6 +468,14 @@ export default function App() {
     await removeTaskAttachment(taskId, attachment);
   }
 
+  async function handleSaveTaskFeedback(taskId, { text, files }) {
+    await saveTaskFeedback(taskId, { text, files });
+  }
+
+  async function handleRemoveTaskFeedbackAttachment(taskId, attachment) {
+    await removeTaskFeedbackAttachment(taskId, attachment);
+  }
+
   async function handleEditTaskTitle(taskId, title) {
     await updateTaskTitle(taskId, title);
   }
@@ -667,6 +677,8 @@ export default function App() {
             onAssignTutorTask={assignTutorTask}
             onAddTaskAttachments={handleAddTaskAttachments}
             onRemoveTaskAttachment={handleRemoveTaskAttachment}
+            onSaveTaskFeedback={handleSaveTaskFeedback}
+            onRemoveTaskFeedbackAttachment={handleRemoveTaskFeedbackAttachment}
             onEditTaskTitle={handleEditTaskTitle}
             onEditTaskNotes={handleEditTaskNotes}
             onDeleteTask={handleDeleteTask}
