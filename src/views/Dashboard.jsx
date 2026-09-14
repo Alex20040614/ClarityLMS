@@ -105,7 +105,7 @@ export default function Dashboard({ role, profile, setView, classes, roster, stu
                 <ClassRow
                   key={c.id}
                   classItem={c}
-                  meta={isTutor ? `With ${classStudentNames(c)}` : `With ${c.tutorName}`}
+                  meta={isTutor ? (classStudentNames(c) ? `With ${classStudentNames(c)}` : "No students in this class") : `With ${c.tutorName}`}
                   onClick={() => onSelectClass(c.id)}
                 />
               ))

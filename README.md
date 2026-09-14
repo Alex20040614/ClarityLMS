@@ -11,8 +11,11 @@ and submitting tasks, asking and answering questions with LaTeX support, and an 
   hours; booking or creating a class deducts hours automatically (cancelling refunds them), with a
   manual editor and a low/negative-balance warning when booking past what's left.
 - **Schedule** — tutors create classes (single or multiple students at once), attach materials, and
-  add a meeting link (Zoom, Google Meet, or any other provider) for students to join. A week-view
-  calendar shows upcoming classes, timezone-safe for every viewer.
+  add a meeting link (Zoom, Google Meet, or any other provider) for students to join. Attendees can
+  be added to or removed from an existing class at any time, each change settling the student's
+  hours balance (removal refunds what the class billed them), with a warning before removing the
+  last student from a class. A week-view calendar shows upcoming classes, timezone-safe for every
+  viewer.
 - **Booking & availability** — tutors paint a recurring weekly availability template on a drag (or
   tap, on touch devices) grid; students request a class in an open slot; the tutor accepts (with
   automatic schedule-conflict and insufficient-hours checks) or declines, and students can cancel a

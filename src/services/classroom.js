@@ -152,10 +152,11 @@ export async function updateClassMeetingLink(classId, meetingLink) {
   await updateDoc(doc(db, "classes", classId), { meetingLink });
 }
 
-// Adds attendees to an existing class. Receives the full new attendee list (current + additions) and
-// keeps the flat studentUids array in sync, so array-contains queries and the read rule (which gate
-// a student's access to the class on membership in studentUids) stay correct.
-export async function addClassStudents(classId, students) {
+// Replaces an existing class's attendee list — used both when adding students and when removing
+// one. Receives the full new attendee list and keeps the flat studentUids array in sync, so
+// array-contains queries and the read rule (which gate a student's access to the class on
+// membership in studentUids) stay correct; a removed student loses access as soon as this lands.
+export async function setClassStudents(classId, students) {
   await updateDoc(doc(db, "classes", classId), {
     students,
     studentUids: students.map((s) => s.uid),

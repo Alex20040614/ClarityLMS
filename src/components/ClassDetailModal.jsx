@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Icon } from "./Common.jsx";
 import { FilePicker, AttachmentList } from "./FileAttachments.jsx";
 import StudentMultiSelect from "./StudentMultiSelect.jsx";
-import { formatClassDay, formatDuration, formatTimeRange, classStudents, classStartMs, rangesOverlap, hueForName, initials } from "../data.js";
+import { formatClassDay, formatDuration, formatTimeRange, classStudents, classStartMs, rangesOverlap, hueForName, initials, formatHours } from "../data.js";
 
 const DURATION_OPTIONS = Array.from({ length: 12 }, (_, i) => (i + 1) * 15); // 15, 30, … 180
 
@@ -21,6 +21,7 @@ export default function ClassDetailModal({
   roster = [],
   classes = [],
   onAddStudents,
+  onRemoveStudent,
 }) {
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -44,6 +45,11 @@ export default function ClassDetailModal({
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState("");
 
+  // The attendee awaiting a "this is the last student" confirmation, if any.
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [removeBusyUid, setRemoveBusyUid] = useState(null);
+  const [removeError, setRemoveError] = useState("");
+
   const [editingTime, setEditingTime] = useState(false);
   const [timeDraft, setTimeDraft] = useState({ date: "", time: "", duration: 60 });
   const [timeBusy, setTimeBusy] = useState(false);
@@ -57,6 +63,8 @@ export default function ClassDetailModal({
 
   const attendees = classStudents(classItem);
   const attendeeUids = new Set(attendees.map((s) => s.uid));
+  // What this class bills (and so refunds) each attendee — shown when warning about a removal.
+  const billedHours = classItem.billedHours ?? (Number(classItem.duration) || 0) / 60;
 
   // Students booked in another of this tutor's classes that overlaps this one — they can't be added
   // here without a clash, so they're left out of the picker ("not currently in a class" at this time).
@@ -113,6 +121,30 @@ export default function ClassDetailModal({
       setAddError(err.message || "Couldn't add those students. Try again.");
     } finally {
       setAddBusy(false);
+    }
+  }
+
+  // Removing the last attendee would leave the class with nobody in it, so that one goes through a
+  // confirmation step first; removing anyone else just happens.
+  function requestRemoveStudent(student) {
+    setRemoveError("");
+    if (attendees.length <= 1) {
+      setConfirmRemove(student);
+    } else {
+      runRemoveStudent(student);
+    }
+  }
+
+  async function runRemoveStudent(student) {
+    setRemoveError("");
+    setRemoveBusyUid(student.uid);
+    try {
+      await onRemoveStudent(classItem.id, student.uid);
+      setConfirmRemove(null);
+    } catch (err) {
+      setRemoveError(err.message || `Couldn't remove ${student.name}. Try again.`);
+    } finally {
+      setRemoveBusyUid(null);
     }
   }
 
@@ -257,19 +289,63 @@ export default function ClassDetailModal({
           {isTutor && (
             <div className="modal-students">
               <div className="modal-section-label">Students</div>
-              <div className="attendee-chips">
-                {attendees.map((a) => {
-                  const h = hueForName(a.name);
-                  return (
-                    <span key={a.uid} className="attendee-chip">
-                      <span className="avatar-dark" style={{ width: 20, height: 20, fontSize: 9, background: `oklch(0.6 0.14 ${h})` }}>
-                        {initials(a.name)}
+              {attendees.length > 0 ? (
+                <div className="attendee-chips">
+                  {attendees.map((a) => {
+                    const h = hueForName(a.name);
+                    return (
+                      <span key={a.uid} className="attendee-chip">
+                        <span className="avatar-dark" style={{ width: 20, height: 20, fontSize: 9, background: `oklch(0.6 0.14 ${h})` }}>
+                          {initials(a.name)}
+                        </span>
+                        {a.name}
+                        <button
+                          type="button"
+                          className="attendee-chip-remove"
+                          onClick={() => requestRemoveStudent(a)}
+                          disabled={removeBusyUid != null}
+                          aria-label={`Remove ${a.name} from this class`}
+                          title={`Remove ${a.name} from this class`}
+                        >
+                          <Icon name="close" />
+                        </button>
                       </span>
-                      {a.name}
-                    </span>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="modal-hint" style={{ margin: "4px 0 10px 0" }}>
+                  No students in this class yet.
+                </div>
+              )}
+              {confirmRemove && (
+                <div className="delete-confirm last-student-warning">
+                  <div className="delete-confirm-text">
+                    {confirmRemove.name} is the only student in this class — remove them and the class
+                    will have no students in it.
+                    {billedHours > 0 && ` ${formatHours(billedHours)} goes back to their balance.`}
+                  </div>
+                  <div className="delete-confirm-actions">
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => runRemoveStudent(confirmRemove)}
+                      disabled={removeBusyUid != null}
+                    >
+                      {removeBusyUid ? "Removing…" : "Remove anyway"}
+                    </button>
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => setConfirmRemove(null)}
+                      disabled={removeBusyUid != null}
+                    >
+                      Keep them in the class
+                    </button>
+                  </div>
+                </div>
+              )}
+              {removeError && <div className="auth-error" style={{ marginBottom: 8 }}>{removeError}</div>}
               {availableRoster.length > 0 ? (
                 <div className="add-student-row">
                   <StudentMultiSelect roster={availableRoster} selectedUids={addSelectedUids} onChange={setAddSelectedUids} />

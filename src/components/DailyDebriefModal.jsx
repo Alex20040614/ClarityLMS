@@ -37,7 +37,7 @@ export default function DailyDebriefModal({ classes, onClose }) {
                     </div>
                     <div className="debrief-main">
                       <div className="debrief-title">{c.title}</div>
-                      <div className="debrief-students">{classStudentNames(c)}</div>
+                      <div className="debrief-students">{classStudentNames(c) || "No students"}</div>
                       {c.notes ? <div className="debrief-notes">{c.notes}</div> : null}
                     </div>
                     <span className={`debrief-status ${done ? "done" : "upcoming"}`}>

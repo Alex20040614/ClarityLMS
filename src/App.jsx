@@ -18,7 +18,6 @@ import { findClassConflict, formatClassDay, formatClassStartTime, classStartMs, 
 import DailyDebriefModal from "./components/DailyDebriefModal.jsx";
 import {
   addClassMaterials,
-  addClassStudents,
   addStudentToRoster,
   createClass,
   createRecurringClasses,
@@ -28,6 +27,7 @@ import {
   adjustRosterHours,
   removeClassMaterial,
   removeRosterLink,
+  setClassStudents,
   setRosterHours,
   subscribeClassesForStudent,
   subscribeClassesForTutor,
@@ -390,8 +390,21 @@ export default function App() {
       );
       if (!ok) return;
     }
-    await addClassStudents(classId, students);
+    await setClassStudents(classId, students);
     await adjustHoursForStudents(addedUids, -billed);
+  }
+
+  // Drops one attendee from a class and hands them back the hours it billed them, mirroring the
+  // refund a cancelled class gives. The class itself stays put even if that leaves it with nobody in
+  // it — the modal warns the tutor before they remove the last student.
+  async function handleRemoveClassStudent(classId, studentUid) {
+    const cls = classes.find((c) => c.id === classId);
+    if (!cls) return;
+    const remaining = classStudents(cls).filter((s) => s.uid !== studentUid);
+    if (remaining.length === classStudents(cls).length) return;
+    await setClassStudents(classId, remaining);
+    const refund = cls.billedHours ?? (Number(cls.duration) || 0) / 60;
+    await adjustHoursForStudents([studentUid], refund);
   }
 
   async function handleRemoveClassMaterial(classId, material) {
@@ -535,7 +548,7 @@ export default function App() {
         id: `debrief-${dayKey}`,
         icon: "today",
         title: `Today's debrief: ${todaysClasses.length} ${todaysClasses.length === 1 ? "class" : "classes"}`,
-        meta: todaysClasses.map((c) => classStudentNames(c)).join(", "),
+        meta: todaysClasses.map((c) => classStudentNames(c)).filter(Boolean).join(", "),
         ts: Date.now(),
         onClick: () => setShowDebrief(true),
       });
@@ -720,6 +733,7 @@ export default function App() {
           roster={roster}
           classes={classes}
           onAddStudents={handleAddClassStudents}
+          onRemoveStudent={handleRemoveClassStudent}
         />
       )}
       {showDebrief && <DailyDebriefModal classes={todaysClasses} onClose={() => setShowDebrief(false)} />}

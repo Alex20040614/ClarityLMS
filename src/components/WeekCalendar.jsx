@@ -107,7 +107,7 @@ export default function WeekCalendar({ classes, onSelectClass, onAddClass }) {
                       <span className="week-cal-class-time">{formatTimeRange(c).split(" – ")[0]}</span>
                       <span className="week-cal-class-title">{c.title}</span>
                       <span className="week-cal-class-sep">·</span>
-                      <span className="week-cal-class-meta">{classStudentNames(c)}</span>
+                      <span className="week-cal-class-meta">{classStudentNames(c) || "No students"}</span>
                     </div>
                   ))
                 )}
